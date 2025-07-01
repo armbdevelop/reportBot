@@ -104,15 +104,29 @@ export const InventoryForm = ({
   }, [validationErrors, setValidationErrors]);
 
   // Обработка изменения количества товара
-  const handleQuantityChange = useCallback((itemId, quantity) => {
-    const numQuantity = Math.max(0, parseInt(quantity) || 0);
+  const handleQuantityChange = useCallback((itemId, value) => {
+    // Разрешаем пустую строку как промежуточное значение
+    if (value === '') {
+      setFormData(prev => ({
+        ...prev,
+        inventory_data: prev.inventory_data.map(entry =>
+          entry.item_id === itemId ? { ...entry, quantity: 0 } : entry
+        )
+      }));
+      return;
+    }
 
+    // Пропускаем нечисловые значения
+    if (!/^\d+$/.test(value)) return;
+
+    // Преобразуем в число (убираем ведущие нули)
+    const numValue = parseInt(value, 10);
+
+    // Устанавливаем значение (не менее 0)
     setFormData(prev => ({
       ...prev,
       inventory_data: prev.inventory_data.map(entry =>
-        entry.item_id === itemId
-          ? { ...entry, quantity: numQuantity }
-          : entry
+        entry.item_id === itemId ? { ...entry, quantity: numValue } : entry
       )
     }));
   }, []);
@@ -147,7 +161,7 @@ export const InventoryForm = ({
   // Получение количества для товара
   const getQuantityForItem = useCallback((itemId) => {
     const entry = formData.inventory_data.find(item => item.item_id === itemId);
-    return entry ? entry.quantity : 0;
+    return entry ? (entry.quantity === 0 ? '' : entry.quantity.toString()) : '';
   }, [formData.inventory_data]);
 
   const handleSubmit = useCallback(async () => {
@@ -375,24 +389,30 @@ export const InventoryForm = ({
                         const quantity = getQuantityForItem(item.id);
 
                         return (
-                          <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                          <div key={item.id} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                            quantity > 0 ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                          }`}>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">
                                 {item.name}
+                                {quantity > 0 && <span className="ml-2 text-green-600">✓</span>}
                               </p>
                               <p className="text-xs text-gray-600">
                                 ID: {item.id} • {item.unit}
                               </p>
                             </div>
                             <div className="flex-shrink-0">
-                              <MemoizedInput
-                                type="text"
-                                value={quantity}
-                                onChange={(e) => handleNumberInput(e, (newValue) =>
-                                  handleQuantityChange(item.id, newValue)
-                                )}
+                              <input
+                                type="number"
+                                min="0"
+                                value={getQuantityForItem(item.id)}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                 disabled={isLoading}
-                                className="w-20 p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-center disabled:opacity-50 transition-colors"
+                                className={`w-20 p-2 border rounded-lg focus:outline-none text-center disabled:opacity-50 transition-all ${
+                                  quantity > 0 
+                                    ? 'bg-green-50 border-green-300 focus:border-green-500 text-green-700' 
+                                    : 'bg-white border-gray-300 focus:border-blue-500'
+                                }`}
                                 placeholder="0"
                                 name={`item-${item.id}`}
                                 id={`item-${item.id}`}
