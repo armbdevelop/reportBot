@@ -37,6 +37,21 @@ export const InventoryForm = ({
   const [searchTerm, setSearchTerm] = useState('');
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
 
+  useEffect(() => {
+    if (formData.inventory_data) {
+      const problematicItems = formData.inventory_data.filter(item =>
+        item.quantity !== '' &&
+        item.quantity !== null &&
+        item.quantity !== undefined &&
+        !/^\d*\.?\d*$/.test(String(item.quantity))
+      );
+
+      if (problematicItems.length > 0) {
+        console.warn('Проблемные значения в inventory_data:', problematicItems);
+      }
+    }
+  }, [formData.inventory_data]);
+
   // Загрузка товаров из API
   useEffect(() => {
     const loadItems = async () => {

@@ -5,8 +5,19 @@ export const useFormData = (validationErrors, setValidationErrors) => {
   // Функция для обработки числового ввода
   const handleNumberInput = useCallback((e, callback) => {
     const value = e.target.value;
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      callback(value);
+
+    // Дополнительная проверка на случай загрузки из localStorage
+    if (value === '' || value === null || value === undefined) {
+      callback('');
+      return;
+    }
+
+    // Преобразуем в строку если это не строка
+    const stringValue = String(value);
+
+    // Проверяем корректность числового значения
+    if (/^\d*\.?\d*$/.test(stringValue)) {
+      callback(stringValue);
     }
   }, []);
 

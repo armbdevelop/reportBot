@@ -175,7 +175,22 @@ function App() {
     try {
       const drafts = getDrafts();
       const draft = drafts.find(d => d.id === draftId);
+
+
       if (draft) {
+        if (draft.data && draft.type === 'inventory') {
+          if (draft.data.inventory_data) {
+            draft.data.inventory_data = draft.data.inventory_data.map(item => ({
+              ...item,
+              quantity: item.quantity && !isNaN(item.quantity) ? String(item.quantity) : ''
+            }));
+          }
+        }
+
+        setCurrentDraftId(draftId);
+        setCurrentForm(draft.type);
+
+
         // Восстанавливаем данные
         const draftData = { ...draft.data };
 
