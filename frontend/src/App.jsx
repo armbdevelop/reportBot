@@ -370,6 +370,11 @@ function App() {
       <Route path="/otchet/views" element={
         <ReportsViewer goToMenu={goToMenu} apiService={apiService}/>
       } />
+
+      {/* Скрытая страница управления товарами - доступ только по прямому URL */}
+      <Route path="/admin/inventory" element={
+        <InventoryManagement goToMenu={goToMenu}/>
+      } />
     </Routes>
   );
 }

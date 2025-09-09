@@ -28,16 +28,22 @@ def get_photo_url(photo_path: str) -> Optional[str]:
     if not photo_path:
         return None
     try:
-        # Путь к папке uploads
-        upload_folder = "uploads"
-        # Получаем относительный путь от папки uploads
-        if photo_path.startswith(upload_folder):
-            relative_path = photo_path[len(upload_folder):].lstrip('/')
-            return f"/uploads/{relative_path}"
-        else:
-            return f"/uploads/{photo_path}"
+        # Если путь уже начинается с /, возвращаем как есть (это уже правильный URL)
+        if photo_path.startswith('/'):
+            return photo_path
+
+        # Если путь начинается с uploads/, убираем uploads/ и добавляем /uploads/
+        if photo_path.startswith('uploads/'):
+            return f"/{photo_path}"
+
+        # Если это только имя файла, добавляем полный путь
+        if '/' not in photo_path:
+            return f"/uploads/shift_reports/{photo_path}"
+
+        # В остальных случаях добавляем /uploads/ в начало
+        return f"/uploads/{photo_path}"
     except Exception:
-        # Если не удается получить относительный путь, возвращаем как есть
+        # Если не удается обработать путь, возвращаем как есть
         return photo_path
 
 

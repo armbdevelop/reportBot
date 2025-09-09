@@ -29,7 +29,7 @@ export const ReceivingForm = ({
     date: getCurrentMSKTime(), // ИЗМЕНЕНО: datetime вместо getCurrentDate()
     photos: [],
     kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }), // ИСПРАВЛЕНО: 15 элементов
-    bar: Array(10).fill({ name: '', quantity: '', unit: '' }),
+    bar: Array(4).fill({ name: '', quantity: '', unit: '' }),
     packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
   });
 
@@ -346,7 +346,7 @@ export const ReceivingForm = ({
       if (additionalPhotos.length > 0) {
         try {
           await apiService.sendAdditionalPhotos(formData.location, additionalPhotos);
-          showNotification('success', 'Отчет отправлен!', `Отчет приема товаров успешно отправлен вместе с ${additionalPhotos.length} дополнительными фотографиями`);
+          showNotification('success', 'Отчет отправлен!', `Отчет приема товаров успешно отправлен вместе с ${additionalPhotos.length} дополнительными фотографи��ми`);
           setAdditionalPhotos([]); // Очищаем дополнительные фото после успешной отправки
           if (additionalPhotoInputRef.current) {
             additionalPhotoInputRef.current.value = '';
@@ -479,41 +479,6 @@ export const ReceivingForm = ({
             />
           </div>
 
-          {/* Warning Blocks */}
-          <div className="mb-4 space-y-3">
-            {/* First Warning Block */}
-            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg">
-              <div className="flex items-start gap-2">
-                <div className="text-amber-600 text-lg">⚠️</div>
-                <div>
-                  <p className="text-sm font-medium text-amber-800 mb-1">
-                    Внимание!
-                  </p>
-                  <p className="text-sm text-amber-700">
-                    Указывать информацию только если вы получили товар с другой точки!
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Second Warning Block */}
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-              <div className="flex items-start gap-2">
-                <div className="text-blue-600 text-lg">⚠️</div>
-                <div>
-                  <p className="text-sm font-medium text-blue-800 mb-2">
-                    Внимание! Указывать полную информацию.
-                  </p>
-                  <p className="text-sm text-blue-700 mb-2">Пример:</p>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Огурцы 3 кг</li>
-                    <li>• Майонез 10 пачек по 750 гр</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Photos Section - ИСПРАВЛЕНО: Улучшенная загрузка фотографий */}
           {/*<div className="mb-6">*/}
           {/*  <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">*/}
@@ -576,7 +541,7 @@ export const ReceivingForm = ({
           {/*  {formData.photos.length > 0 && (*/}
           {/*    <div className="mt-4 space-y-2">*/}
           {/*      <h4 className="text-sm font-medium text-green-700 mb-2">*/}
-          {/*        ✅ Загруженные фотографии ({formData.photos.length}):*/}
+          {/*        ✅ Загруженные ����отографии ({formData.photos.length}):*/}
           {/*      </h4>*/}
           {/*      <div className="space-y-2">*/}
           {/*        {formData.photos.map((photo, index) => (*/}
@@ -780,6 +745,21 @@ export const ReceivingForm = ({
 
           {/* Bar Section */}
           <div className="mb-6">
+            {/* Предупреждающий блок для перемещений */}
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg mb-4">
+              <div className="flex items-start gap-2">
+                <div className="text-amber-600 text-lg">⚠️</div>
+                <div>
+                  <p className="text-sm font-medium text-amber-800 mb-1">
+                    Внимание!
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Указывать информацию только если вы получили товар с другой точки!
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <h3 className="text-lg font-semibold text-blue-600 mb-3">Перемещение с другой точки к вам</h3>
             <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
             {formData.bar.map((item, index) => (
@@ -830,6 +810,23 @@ export const ReceivingForm = ({
 
           {/* Packaging Section */}
           <div className="mb-6">
+            {/* Предупреждающий блок для покупок */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mb-4">
+              <div className="flex items-start gap-2">
+                <div className="text-blue-600 text-lg">⚠️</div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800 mb-2">
+                    Внимание! Указывать полную информацию.
+                  </p>
+                  <p className="text-sm text-blue-700 mb-2">Пример:</p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Огурцы 3 кг</li>
+                    <li>• Майонез 10 пачек по 750 гр</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <h3 className="text-lg font-semibold text-green-600 mb-3">Покупки с магазина</h3>
             <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (пачки/шт)</p>
             {formData.packaging.map((item, index) => (

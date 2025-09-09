@@ -57,6 +57,9 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
 
+  // Новое состояние для отслеживания развернутых секций
+  const [expandedSections, setExpandedSections] = useState({});
+
   const ITEMS_PER_PAGE = 10;
 
   // Установка даты по умолчанию (последние 30 дней)
@@ -151,8 +154,51 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
     }).format(amount);
   };
 
+  // Функция для переключения развернутого состояния секции
+  const toggleExpandedSection = (reportId, sectionType) => {
+    const key = `${reportId}_${sectionType}`;
+    setExpandedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Функция для формирования правильного URL изображения
+  const getImageUrl = (photoUrl) => {
+    if (!photoUrl) return null;
+
+    // Если URL уже полный (начинается с http), используем как есть
+    if (photoUrl.startsWith('http')) {
+      return photoUrl;
+    }
+
+    // Получаем базовый URL без /api
+    let baseUrl = '';
+    if (import.meta.env.VITE_API_BASE_URL) {
+      if (import.meta.env.VITE_API_BASE_URL === '/api') {
+        // Режим разработки - используем текущий хост
+        baseUrl = '';
+      } else {
+        // Продакшн - используем полный URL без /api
+        baseUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
+      }
+    }
+
+    // Если URL уже начинается с /, это готовый путь
+    if (photoUrl.startsWith('/')) {
+      return `${baseUrl}${photoUrl}`;
+    }
+
+    // Иначе это относительный путь, добавляем /uploads/
+    return `${baseUrl}/uploads/${photoUrl}`;
+  };
+
   // Компонент для отображения кассовых отчетов
-  const ShiftReportCard = ({ report }) => (
+  const ShiftReportCard = ({ report }) => {
+    const incomeExpanded = expandedSections[`${report.id}_income`];
+    const expenseExpanded = expandedSections[`${report.id}_expense`];
+
+    return (
     <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 mb-3">
       {/* Компактный заголовок */}
       <div className="flex justify-between items-start mb-3">
@@ -194,7 +240,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         </div>
       </div>
 
-      {/* Безналичные платежи в компактной сетке */}
+      {/* Безналичные пл��тежи в компактной сетке */}
       <div className="mb-3">
         <p className="text-xs font-medium text-gray-700 mb-2">💳 Безналичные:</p>
         <div className="grid grid-cols-3 gap-1 text-xs">
@@ -225,37 +271,53 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         </div>
       </div>
 
-      {/* Внесения компактно */}
+      {/* Внесения с возможностью рас��рытия */}
       {report.income_entries && report.income_entries.length > 0 && (
         <div className="mb-3">
           <p className="text-xs font-medium text-gray-700 mb-1">📈 Внесения ({formatAmount(report.total_income || 0)}):</p>
           <div className="space-y-1">
-            {report.income_entries.slice(0, 2).map((entry, index) => (
+            {(incomeExpanded ? report.income_entries : report.income_entries.slice(0, 2)).map((entry, index) => (
               <div key={index} className="bg-green-50 p-1.5 rounded flex justify-between text-xs">
                 <span className="text-gray-700 truncate">{entry.comment || 'Без комментария'}</span>
                 <span className="font-medium text-green-700 ml-2">{formatAmount(entry.amount || 0)}</span>
               </div>
             ))}
             {report.income_entries.length > 2 && (
-              <p className="text-xs text-gray-500">...и еще {report.income_entries.length - 2}</p>
+              <button
+                onClick={() => toggleExpandedSection(report.id, 'income')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                {incomeExpanded
+                  ? 'Скрыть'
+                  : `...показать еще ${report.income_entries.length - 2}`
+                }
+              </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Расходы компактно */}
+      {/* Расходы с возможностью раскрытия */}
       {report.expense_entries && report.expense_entries.length > 0 && (
         <div className="mb-3">
           <p className="text-xs font-medium text-gray-700 mb-1">📉 Расходы ({formatAmount(report.total_expenses || 0)}):</p>
           <div className="space-y-1">
-            {report.expense_entries.slice(0, 2).map((entry, index) => (
+            {(expenseExpanded ? report.expense_entries : report.expense_entries.slice(0, 2)).map((entry, index) => (
               <div key={index} className="bg-red-50 p-1.5 rounded flex justify-between text-xs">
                 <span className="text-gray-700 truncate">{entry.description || 'Без описания'}</span>
                 <span className="font-medium text-red-700 ml-2">{formatAmount(entry.amount || 0)}</span>
               </div>
             ))}
             {report.expense_entries.length > 2 && (
-              <p className="text-xs text-gray-500">...и еще {report.expense_entries.length - 2}</p>
+              <button
+                onClick={() => toggleExpandedSection(report.id, 'expense')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                {expenseExpanded
+                  ? 'Скрыть'
+                  : `...показать еще ${report.expense_entries.length - 2}`
+                }
+              </button>
             )}
           </div>
         </div>
@@ -299,7 +361,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         </div>
       )}
 
-      {/* Фото компактно */}
+      {/* Фото компактно - ИСПРАВЛЕНО: используем правильный URL из apiService */}
       {report.photo_url && (
         <div className="bg-gray-50 p-2 rounded">
           <p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1">
@@ -307,21 +369,39 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
           </p>
           <div className="flex justify-center">
             <img
-              src={`http://localhost:8000${report.photo_url}`}
+              src={getImageUrl(report.photo_url)}
               alt="Фото отчета"
-              className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => window.open(`http://localhost:8000${report.photo_url}`, '_blank')}
+              className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+              onClick={() => {
+                const imageUrl = getImageUrl(report.photo_url);
+                if (imageUrl) window.open(imageUrl, '_blank');
+              }}
               onError={(e) => {
-                e.target.src = '/placeholder-image.png';
-                e.target.alt = 'Фото недоступно';
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+              onLoad={(e) => {
+                e.target.style.display = 'block';
+                if (e.target.nextElementSibling) {
+                  e.target.nextElementSibling.style.display = 'none';
+                }
               }}
             />
+            <div
+              style={{ display: 'none' }}
+              className="text-center p-4 bg-gray-100 rounded border border-gray-300"
+            >
+              <div className="text-gray-400 text-2xl mb-2">🖼️</div>
+              <p className="text-xs text-gray-500">Фото недоступно</p>
+            </div>
           </div>
           <p className="text-xs text-gray-500 text-center mt-1">Нажмите для увеличения</p>
         </div>
       )}
     </div>
-  );
+    );
+  };
+
   // Компонент для отображения отчетов приема товара
   const ReceivingReportCard = ({ report }) => (
     <div className="bg-white border border-blue-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 mb-4">
@@ -458,7 +538,10 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
   );
 
   // Компонент для отображения списаний
-  const WriteoffReportCard = ({ report }) => (
+  const WriteoffReportCard = ({ report }) => {
+    const writeoffExpanded = expandedSections[`${report.id}_writeoff`];
+
+    return (
     <div className="bg-white border border-red-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 mb-3">
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center space-x-2">
@@ -486,12 +569,12 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         </div>
       </div>
 
-      {/* Отображение списаний компактно */}
+      {/* Отображение списаний с возможностью раскрытия */}
       {report.writeoffs && report.writeoffs.length > 0 && (
         <div className="mb-2">
           <p className="text-xs font-medium text-gray-700 mb-1">📋 Списанные товары:</p>
           <div className="space-y-1">
-            {report.writeoffs.slice(0, 2).map((item, index) => (
+            {(writeoffExpanded ? report.writeoffs : report.writeoffs.slice(0, 2)).map((item, index) => (
               <div key={index} className="bg-red-50 p-1.5 rounded">
                 <div className="flex justify-between items-center text-xs">
                   <div>
@@ -505,7 +588,15 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
               </div>
             ))}
             {report.writeoffs.length > 2 && (
-              <p className="text-xs text-gray-500">...и еще {report.writeoffs.length - 2}</p>
+              <button
+                onClick={() => toggleExpandedSection(report.id, 'writeoff')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                {writeoffExpanded
+                  ? 'Скрыть'
+                  : `...показать еще ${report.writeoffs.length - 2}`
+                }
+              </button>
             )}
           </div>
         </div>
@@ -516,10 +607,14 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         <p className="font-semibold text-sm text-red-800">{report.items_count}</p>
       </div>
     </div>
-  );
+    );
+  };
 
   // Компонент для отображения перемещений
-  const TransferReportCard = ({ report }) => (
+  const TransferReportCard = ({ report }) => {
+    const transferExpanded = expandedSections[`${report.id}_transfer`];
+
+    return (
     <div className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 mb-3">
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center space-x-2">
@@ -552,12 +647,12 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         </div>
       </div>
 
-      {/* Отображение перемещений компактно */}
+      {/* Отобра��ение перемещений с возможностью раскрытия */}
       {report.transfers && report.transfers.length > 0 && (
         <div className="mb-2">
           <p className="text-xs font-medium text-gray-700 mb-1">📋 Перемещенные товары:</p>
           <div className="space-y-1">
-            {report.transfers.slice(0, 2).map((item, index) => (
+            {(transferExpanded ? report.transfers : report.transfers.slice(0, 2)).map((item, index) => (
               <div key={index} className="bg-purple-50 p-1.5 rounded">
                 <div className="flex justify-between items-center text-xs">
                   <div>
@@ -571,7 +666,15 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
               </div>
             ))}
             {report.transfers.length > 2 && (
-              <p className="text-xs text-gray-500">...и еще {report.transfers.length - 2}</p>
+              <button
+                onClick={() => toggleExpandedSection(report.id, 'transfer')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                {transferExpanded
+                  ? 'Скрыть'
+                  : `...показать еще ${report.transfers.length - 2}`
+                }
+              </button>
             )}
           </div>
         </div>
@@ -582,7 +685,8 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
         <p className="font-semibold text-sm text-purple-800">{report.items_count}</p>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderReportCard = (report) => {
     switch (selectedCategory) {
@@ -671,7 +775,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
             </p>
           </div>
 
-          {/* Выбор категори�� отчета */}
+          {/* Выбор категории отчета */}
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
               <span className="mr-2">📋</span>
@@ -861,7 +965,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
             <div className="text-yellow-500 text-6xl mb-4">📭</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Отчеты не найдены</h3>
             <p className="text-gray-600">
-              За указанный период не найдено отчетов в категории &quot;{selectedCategoryData?.name}&quot;
+              За указанный период не найдены отчетов в категории &quot;{selectedCategoryData?.name}&quot;
             </p>
           </div>
         ) : (

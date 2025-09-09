@@ -35,7 +35,8 @@ export const MainMenu = ({
           </div>
         )}
 
-        {/* НОВОЕ: Кнопка управления товарами (только для админов) */}
+        {/* НОВОЕ: Кнопка управления товарами скрыта - доступ только по URL /admin/inventory */}
+        {/*
         <div className="mb-6">
           <button
             onClick={() => {
@@ -58,6 +59,7 @@ export const MainMenu = ({
           </button>
           <hr className="my-6 border-gray-300" />
         </div>
+        */}
 
         {/* Новые отчеты */}
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Создать новый отчет:</h2>
