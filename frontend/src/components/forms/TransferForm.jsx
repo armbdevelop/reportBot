@@ -23,12 +23,14 @@ export const TransferForm = ({
   apiService
 }) => {
   const [formData, setFormData] = useState({
-    location: '',
+    locationFrom: '',
+    locationTo: '',
     shift: '',
     cashierName: '',
     writeoff_or_transfer: 'Перемещения',
-    date: getCurrentMSKTime(),
-    transfers: Array(4).fill({ name: '', weight: '', unit: '', reason: '' })
+    reportDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD формат
+    reportTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), // HH:MM формат
+    transfers: ['', '', '', ''] // Явно инициализируем как массив строк
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
@@ -39,6 +41,20 @@ export const TransferForm = ({
     if (currentDraftId) {
       const draftData = loadDraft(currentDraftId);
       if (draftData) {
+        // Проверяем и исправляем структуру transfers, если она неправильная
+        if (draftData.transfers && Array.isArray(draftData.transfers)) {
+          draftData.transfers = draftData.transfers.map(item => {
+            // Если элемент - объект, преобразуем в строку
+            if (typeof item === 'object' && item !== null) {
+              return ''; // Очищаем неправильные данные
+            }
+            // Если элемент уже строка, оставляем как есть
+            return typeof item === 'string' ? item : '';
+          });
+        } else {
+          // Если transfers не массив, создаем новый пустой массив
+          draftData.transfers = ['', '', '', ''];
+        }
         setFormData(draftData);
       }
     }
@@ -46,9 +62,9 @@ export const TransferForm = ({
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
-    const hasTransfers = data.transfers.some(item => item.name || item.weight || item.unit || item.reason);
+    const hasTransfers = data.transfers.some(item => item.trim() !== '');
 
-    if (data.location || hasTransfers) {
+    if (data.locationFrom || data.locationTo || hasTransfers) {
       await saveDraft('transfer', data);
     }
   }, [saveDraft]);
@@ -77,10 +93,25 @@ export const TransferForm = ({
     });
   }, []);
 
+  const handleTransferChange = useCallback((index, value) => {
+    setFormData(prev => {
+      const newTransfers = [...prev.transfers];
+      newTransfers[index] = value;
+      return { ...prev, transfers: newTransfers };
+    });
+  }, []);
+
   const addArrayItem = useCallback((arrayName) => {
     setFormData(prev => ({
       ...prev,
       [arrayName]: [...prev[arrayName], { name: '', weight: '', unit: '', reason: '' }]
+    }));
+  }, []);
+
+  const addTransferItem = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
+      transfers: [...prev.transfers, '']
     }));
   }, []);
 
@@ -93,21 +124,50 @@ export const TransferForm = ({
     window.location.reload();
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
 
+  // Функция для валидации даты
+  const validateDate = useCallback((dateString) => {
+    if (!dateString) return false;
+
+    const date = new Date(dateString);
+    const today = new Date();
+    const minDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    const maxDate = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+
+    return date >= minDate && date <= maxDate;
+  }, []);
+
+  // Функция для валидации времени
+  const validateTime = useCallback((timeString) => {
+    if (!timeString) return false;
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(timeString);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     // Валидация
     const errors = {};
 
-    if (!formData.location) errors.location = 'Выберите локацию';
+    if (!formData.locationFrom) errors.locationFrom = 'Выберите локацию "Откуда"';
+    if (!formData.locationTo) errors.locationTo = 'Выберите локацию "Куда"';
+    if (formData.locationFrom === formData.locationTo) errors.locationTo = 'Локации отправления и назначения не могут быть одинаковыми';
     if (!formData.shift) errors.shift = 'Выберите смену';
     if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира';
-    if (!formData.date) errors.date = 'Выберите дату';
 
-    // Проверяем, что есть хотя бы одна заполненная позиция
-    const hasTransfers = formData.transfers.some(item => item.name && item.weight && item.unit && item.reason);
-
-    if (!hasTransfers) {
-      errors.items = 'Заполните хотя бы одну позицию перемещения (название + вес + единица + причина)';
+    // Валидация даты
+    if (!formData.reportDate) {
+      errors.reportDate = 'Выберите дату';
+    } else if (!validateDate(formData.reportDate)) {
+      errors.reportDate = 'Выберите корректную дату (в пределах года от текущей даты)';
     }
+
+    // Валидация времени
+    if (!formData.reportTime) {
+      errors.reportTime = 'Выберите время';
+    } else if (!validateTime(formData.reportTime)) {
+      errors.reportTime = 'Введите корректное время в формате ЧЧ:ММ';
+    }
+
 
     if (Object.keys(errors).length > 0) {
       showValidationErrors(errors);
@@ -121,21 +181,23 @@ export const TransferForm = ({
       const apiFormData = new FormData();
 
       // Основные поля
-      apiFormData.append('location', formData.location);
+      apiFormData.append('location_from', formData.locationFrom);
+      apiFormData.append('location_to', formData.locationTo);
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
       apiFormData.append('writeoff_or_transfer', formData.writeoff_or_transfer);
+      apiFormData.append('report_date', formData.reportDate);
+      apiFormData.append('report_time', formData.reportTime);
 
-
-      // Отправляем только перемещения, списания будут пустыми
+      // Парсим строки перемещений в нужный формат для API
       const writeoffs = [];
       const transfers = formData.transfers
-        .filter(item => item.name && item.weight && item.unit && item.reason)
-        .map(item => ({
-          name: item.name,
-          unit: item.unit,
-          weight: parseFloat(item.weight),
-          reason: item.reason
+        .filter(item => item.trim() !== '')
+        .map((item, index) => ({
+          name: item,
+          unit: 'шт',
+          weight: 1,
+          reason: `Позиция ${index + 1}`
         }));
 
       // Отправляем пустые списания для совместимости с API
@@ -180,25 +242,49 @@ export const TransferForm = ({
           {/* Ошибки валидации */}
           <ValidationAlert errors={validationErrors} />
 
-          {/* Location */}
+          {/* Location From */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
-              <MapPin size={16} className="text-blue-500" />
-              📍 Локация:
+              <MapPin size={16} className="text-red-500" />
+              📍 Откуда?
             </label>
             <div className="space-y-2">
               {locations.map(loc => (
                 <button
                   key={loc}
-                  onClick={() => handleInputChange('location', loc)}
+                  onClick={() => handleInputChange('locationFrom', loc)}
                   disabled={isLoading}
                   className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
-                    formData.location === loc 
+                    formData.locationFrom === loc 
                       ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
                       : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
-                  } ${validationErrors.location ? 'border-red-400 bg-red-50' : ''}`}
+                  } ${validationErrors.locationFrom ? 'border-red-400 bg-red-50' : ''}`}
                 >
-                  {loc}
+                  Отправляю с {loc}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Location To */}
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
+              <MapPin size={16} className="text-red-500" />
+              📍 Куда?
+            </label>
+            <div className="space-y-2">
+              {locations.map(loc => (
+                <button
+                  key={loc}
+                  onClick={() => handleInputChange('locationTo', loc)}
+                  disabled={isLoading}
+                  className={`w-full p-3 text-left rounded-lg border transition-colors disabled:opacity-50 ${
+                    formData.locationTo === loc 
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
+                      : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700 shadow-sm hover:shadow-md'
+                  } ${validationErrors.locationTo ? 'border-red-400 bg-red-50' : ''}`}
+                >
+                  На точку {loc}
                 </button>
               ))}
             </div>
@@ -258,72 +344,140 @@ export const TransferForm = ({
 
           {/* Date & Time */}
           <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата отчета</label>
             <input
-              type="text"
-              value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+              type="date"
+              value={formData.reportDate}
+              onChange={(e) => handleInputChange('reportDate', e.target.value)}
+              disabled={isLoading}
+              min={new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
+              max={new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
+              className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
+                validationErrors.reportDate 
+                  ? 'border-red-400 bg-red-50 text-red-700' 
+                  : 'bg-white border-gray-300 focus:border-blue-500 focus:outline-none text-gray-700'
+              }`}
+              name="report-date"
+              id="report-date"
             />
+            {validationErrors.reportDate && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.reportDate}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="text-sm font-medium block mb-2 text-gray-700">⏰ Время отчета</label>
+            <input
+              type="time"
+              value={formData.reportTime}
+              onChange={(e) => handleInputChange('reportTime', e.target.value)}
+              disabled={isLoading}
+              step="60"
+              className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
+                validationErrors.reportTime 
+                  ? 'border-red-400 bg-red-50 text-red-700' 
+                  : 'bg-white border-gray-300 focus:border-blue-500 focus:outline-none text-gray-700'
+              }`}
+              name="report-time"
+              id="report-time"
+            />
+            {validationErrors.reportTime && (
+              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.reportTime}</p>
+            )}
+          </div>
+
+          {/* Информационный блок с правилами */}
+          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-bold">!</span>
+              </div>
+              <h3 className="text-lg font-bold text-blue-700">Правило по перемещениям товара</h3>
+            </div>
+
+            <div className="space-y-3 text-sm text-gray-700">
+              <div className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <span className="font-semibold text-green-700">Если твоя точка отправляет товар</span> в другую точку —
+                  <span className="font-semibold"> заполняешь перемещение в этой форме</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                <div>
+                  <span className="font-semibold text-orange-700">Если твоя точка принимает товар</span> —
+                  <span className="font-semibold"> в перемещении ничего не пишешь</span>.
+                  Отмечаешь это только в своём отчёте о приёма товара, в блоке «Перемещение с другой точки к вам»
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 p-2 bg-blue-100 rounded border-l-4 border-blue-400">
+              <p className="text-xs text-blue-800 font-medium">
+                💡 Помни: каждое перемещение фиксируется только один раз — отправителем!
+              </p>
+            </div>
+          </div>
+
+          {/* Информационный блок с инструкциями по заполнению */}
+          <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-bold">⚠</span>
+              </div>
+              <h3 className="text-lg font-bold text-orange-700">Внимание!</h3>
+            </div>
+
+            <div className="space-y-3 text-sm text-gray-700">
+              <p className="font-semibold text-orange-800">
+                Указывайте полную информацию перемещения товара.
+              </p>
+              <p>
+                <span className="font-medium">Название - вес/количество.</span>
+              </p>
+
+              <div className="bg-orange-100 p-3 rounded-lg border-l-4 border-orange-400">
+                <p className="text-xs font-medium text-orange-800 mb-2">Примеры правильного заполнения:</p>
+                <div className="space-y-1 text-xs text-orange-700">
+                  <p>• Майонез - 10 пачек</p>
+                  <p>• Лепешки 200 штук</p>
+                  <p>• Сырный соус 2 кг</p>
+                  <p>• Стрипсы 1 пачку</p>
+                  <p>• Специи 2 кг и тд.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Transfers Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-blue-600 mb-3">↔️ Перемещения</h3>
-            <p className="text-sm text-gray-600 mb-3">Наименование - количество - кг/шт - причина и куда отправили</p>
+            <p className="text-sm text-gray-600 mb-3">Укажите полную информацию о товаре в каждом поле</p>
             {formData.transfers.map((item, index) => (
-              <div key={index} className="grid grid-cols-4 gap-1 mb-2">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Наименование"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('transfers', index, 'name', e.target.value)}
+              <div key={index} className="mb-3">
+                <textarea
+                  placeholder="Какой товар, сколько кг\шт или пачек"
+                  value={item}
+                  onChange={(e) => handleTransferChange(index, e.target.value)}
                   disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`transfer-name-${index}`}
-                  id={`transfer-name-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="Количество"
-                  value={item.weight}
-                  onChange={(e) => handleNumberInput(e, (value) =>
-                    handleArrayChange('transfers', index, 'weight', value)
-                  )}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`transfer-weight-${index}`}
-                  id={`transfer-weight-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="кг/шт"
-                  value={item.unit}
-                  onChange={(e) => handleArrayChange('transfers', index, 'unit', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`transfer-unit-${index}`}
-                  id={`transfer-unit-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="Причина и куда переместили"
-                  value={item.reason}
-                  onChange={(e) => handleArrayChange('transfers', index, 'reason', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-xs disabled:opacity-50 transition-colors"
-                  name={`transfer-reason-${index}`}
-                  id={`transfer-reason-${index}`}
+                  rows={3}
+                  className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 resize-none ${
+                    'bg-white border-gray-300 focus:border-blue-500 focus:outline-none text-gray-700'
+                  }`}
+                  name={`transfer-${index}`}
+                  id={`transfer-${index}`}
                 />
               </div>
             ))}
             <button
-              onClick={() => addArrayItem('transfers')}
+              onClick={addTransferItem}
               disabled={isLoading}
               className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
             >
               <Plus size={16} />
-              добавить еще
+              добавить еще поле
             </button>
           </div>
 

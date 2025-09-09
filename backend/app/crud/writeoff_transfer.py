@@ -57,6 +57,7 @@ class WriteoffTransferCRUD:
             # Создаем запись в БД
             db_report = WriteoffTransfer(
                 location=report_data.location,
+                location_to=report_data.location_to,  # Добавляем новое поле
                 writeoffs=writeoffs_dict,
                 transfers=transfers_dict,
                 shift_type=report_data.shift_type,
@@ -109,13 +110,17 @@ class WriteoffTransferCRUD:
                     # Подготавливаем данные для отправки
                     report_dict = {
                         'location': db_report.location,
+                        'location_to': db_report.location_to,  # Добавляем недостающее поле
                         'created_date': db_report.created_date,
                         'cashier_name': db_report.cashier_name,
                         'shift_type': db_report.shift_type,
                         'writeoffs': db_report.writeoffs,
                         'transfers': db_report.transfers,
                         "writeoff_or_transfer": writeoff_or_transfer,
-                        "date": db_report.date
+                        "date": db_report.date,
+                        # Добавляем отдельные поля для даты и времени отчета
+                        "report_date": db_report.date.date() if db_report.date else None,
+                        "report_time": db_report.date.time() if db_report.date else None,
                     }
 
                     # Отправляем в Telegram (с таймаутом)

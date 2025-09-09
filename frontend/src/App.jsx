@@ -1,12 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import {
   MainMenu,
   CashierReportForm,
-  InventoryForm,
   ReceivingForm,
   WriteOffForm,
   TransferForm,
-  InventoryManagement
+  InventoryManagement,
+  ReportsViewer
 } from './components/forms';
 import { NotificationScreen } from './components/common';
 import { apiService } from './services/apiService';
@@ -63,10 +64,22 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [drafts, setDrafts] = useState([]);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // Load drafts on app start
   useEffect(() => {
     setDrafts(getDrafts());
   }, []);
+
+  // Handle route changes
+  useEffect(() => {
+    if (location.pathname === '/otchet/views') {
+      setCurrentForm('reports-viewer');
+    } else {
+      setCurrentForm('menu');
+    }
+  }, [location.pathname]);
 
   // Draft management functions с логикой base64 как в монолитной версии
   const saveDraft = useCallback(async (type, data) => {
@@ -264,13 +277,14 @@ function App() {
     }
   }, [currentDraftId, deleteDraft]);
 
-  // Navigation functions
+  // Navigation functions - обновляем для работы с роутингом
   const goToMenu = useCallback(() => {
+    navigate('/');
     setCurrentForm('menu');
     setCurrentDraftId(null);
     setValidationErrors({});
-    setDrafts(getDrafts()); // Обновляем список черновиков
-  }, []);
+    setDrafts(getDrafts());
+  }, [navigate]);
 
   // Notification functions - показываем только для успеха или критических ошибок
   const showNotification = useCallback((type, title, message) => {
@@ -326,32 +340,38 @@ function App() {
     );
   }
 
-  // Render appropriate form
-  switch (currentForm) {
-    case 'cashier':
-      return <CashierReportForm {...formProps} locations={formProps.cashierLocations}/>;
-    case 'inventory':
-      return <InventoryForm {...formProps} locations={formProps.reportLocations}/>;
-    case 'receiving':
-      return <ReceivingForm {...formProps} locations={formProps.reportLocations}/>;
-    case 'writeoff':
-      return <WriteOffForm {...formProps} locations={formProps.reportLocations}/>;
-    case 'transfer':
-      return <TransferForm {...formProps} locations={formProps.peremesheniya}/>;
-    case 'inventory-management':
-      return <InventoryManagement goToMenu={goToMenu}/>;
-    default:
-      return (
-        <MainMenu
-          drafts={drafts}
-          setCurrentForm={setCurrentForm}
-          setCurrentDraftId={setCurrentDraftId}
-          setValidationErrors={setValidationErrors}
-          deleteDraft={deleteDraft}
-          loadDraft={loadDraftFromMenu}
-        />
-      );
-  }
+  return (
+    <Routes>
+      {/* Главная страница - только меню без просмотра отчетов */}
+      <Route path="/" element={
+        currentForm === 'cashier' ? (
+          <CashierReportForm {...formProps} locations={formProps.cashierLocations}/>
+        ) : currentForm === 'receiving' ? (
+          <ReceivingForm {...formProps} locations={formProps.reportLocations}/>
+        ) : currentForm === 'writeoff' ? (
+          <WriteOffForm {...formProps} locations={formProps.reportLocations}/>
+        ) : currentForm === 'transfer' ? (
+          <TransferForm {...formProps} locations={formProps.locations}/>
+        ) : currentForm === 'inventory-management' ? (
+          <InventoryManagement goToMenu={goToMenu}/>
+        ) : (
+          <MainMenu
+            drafts={drafts}
+            setCurrentForm={setCurrentForm}
+            setCurrentDraftId={setCurrentDraftId}
+            setValidationErrors={setValidationErrors}
+            deleteDraft={deleteDraft}
+            loadDraft={loadDraftFromMenu}
+          />
+        )
+      } />
+
+      {/* Скрытая страница просмотра отчетов */}
+      <Route path="/otchet/views" element={
+        <ReportsViewer goToMenu={goToMenu} apiService={apiService}/>
+      } />
+    </Routes>
+  );
 }
 
 export default App;

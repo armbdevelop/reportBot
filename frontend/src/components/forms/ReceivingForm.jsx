@@ -271,7 +271,6 @@ export const ReceivingForm = ({
     if (!formData.shift) errors.shift = 'Выберите смену'; // ДОБАВИТЬ
     if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира'; // ДОБАВИТЬ
     if (!formData.date) errors.date = 'Выберите дату';
-    if (formData.photos.length === 0) errors.photos = 'Добавьте хотя бы одну фотографию накладных';
 
     // Проверяем, что есть хотя бы одна заполненная позиция
     const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity && item.unit);
@@ -480,122 +479,157 @@ export const ReceivingForm = ({
             />
           </div>
 
-          {/* Photos Section - ИСПРАВЛЕНО: Улучшенная загрузка фотографий */}
-          <div className="mb-6">
-            <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
-              <Camera size={16} className="text-purple-500" />
-              Фотографии накладных *
-            </label>
-            <p className="text-xs text-gray-600 mb-3">
-              Добавьте фотографии накладных на принятый товар (до 10 фотографий)
-            </p>
-
-            {/* Fallback input для одиночной загрузки - ЕДИНСТВЕННАЯ ФОРМА */}
-            <input
-              ref={singlePhotoInputRef}
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  addPhotos([e.target.files[0]]);
-                }
-              }}
-              disabled={isLoading}
-              className="hidden"
-              name="single_photo"
-              id="single_photo"
-            />
-
-            {/* Единственная кнопка загрузки фотографий - увеличенная с дизайном основной кнопки */}
-            <button
-              type="button"
-              onClick={() => singlePhotoInputRef.current?.click()}
-              disabled={isLoading || formData.photos.length >= 10}
-              className={`w-full photo-upload-button ${
-                validationErrors.photos 
-                  ? 'border-red-400 bg-red-50 hover:bg-red-100' 
-                  : formData.photos.length >= 10
-                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
-                    : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-3">
-                <Camera size={24} className="text-purple-600" />
-                <div className="text-center">
-                  <div className="font-semibold text-purple-700 text-lg">
-                    {formData.photos.length >= 10
-                      ? 'Достигнут максимум (10 фото)'
-                      : 'Добавить по одной фотографии'
-                    }
-                  </div>
-                  <div className="text-sm text-purple-600">
-                    {formData.photos.length > 0
-                      ? `Загружено: ${formData.photos.length} из 10`
-                      : 'Нажмите для выбора фотографии'
-                    }
-                  </div>
+          {/* Warning Blocks */}
+          <div className="mb-4 space-y-3">
+            {/* First Warning Block */}
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg">
+              <div className="flex items-start gap-2">
+                <div className="text-amber-600 text-lg">⚠️</div>
+                <div>
+                  <p className="text-sm font-medium text-amber-800 mb-1">
+                    Внимание!
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Указывать информацию только если вы получили товар с другой точки!
+                  </p>
                 </div>
               </div>
-            </button>
+            </div>
 
-            {/* Показываем загруженные фотографии */}
-            {formData.photos.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <h4 className="text-sm font-medium text-green-700 mb-2">
-                  ✅ Загруженные фотографии ({formData.photos.length}):
-                </h4>
-                <div className="space-y-2">
-                  {formData.photos.map((photo, index) => (
-                    <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-start gap-3">
-                        <Image size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-green-700 truncate mb-1">
-                            📄 {photo.name}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-green-600">
-                            <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>
-                            <span>🖼️ {photo.type}</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePhotoClick(index)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                          disabled={isLoading}
-                        >
-                          <XCircle size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            {/* Second Warning Block */}
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+              <div className="flex items-start gap-2">
+                <div className="text-blue-600 text-lg">⚠️</div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800 mb-2">
+                    Внимание! Указывать полную информацию.
+                  </p>
+                  <p className="text-sm text-blue-700 mb-2">Пример:</p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Огурцы 3 кг</li>
+                    <li>• Майонез 10 пачек по 750 гр</li>
+                  </ul>
                 </div>
               </div>
-            )}
-
-            {/* Сообщение об ошибке или подсказка - УЛУЧШЕНО */}
-            {formData.photos.length === 0 && (
-              <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
-                validationErrors.photos 
-                  ? 'border-red-300 bg-red-50 text-red-600' 
-                  : 'border-gray-300 bg-gray-50 text-gray-500'
-              }`}>
-                <Camera size={32} className="mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium mb-1">
-                  {validationErrors.photos
-                    ? '❌ Необходимо добавить фотографии накладных'
-                    : '📸 Нажмите кнопку выше для добавления фотографий'
-                  }
-                </p>
-                <p className="text-xs text-gray-400 mb-2">
-                  Рекомендуется 5-10 четких фотографий накладных
-                </p>
-                <p className="text-xs text-amber-600">
-                  💡 Добавляйте фотографии по одной для стабильной работы
-                </p>
-              </div>
-            )}
+            </div>
           </div>
+
+          {/* Photos Section - ИСПРАВЛЕНО: Улучшенная загрузка фотографий */}
+          {/*<div className="mb-6">*/}
+          {/*  <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">*/}
+          {/*    <Camera size={16} className="text-purple-500" />*/}
+          {/*    Фотографии накладных **/}
+          {/*  </label>*/}
+          {/*  <p className="text-xs text-gray-600 mb-3">*/}
+          {/*    Добавьте фотографии накладных на принятый товар (до 10 фотографий)*/}
+          {/*  </p>*/}
+
+          {/*  /!* Fallback input для одиночной загрузки - ЕДИНСТВЕННАЯ ФОРМА *!/*/}
+          {/*  <input*/}
+          {/*    ref={singlePhotoInputRef}*/}
+          {/*    type="file"*/}
+          {/*    accept="image/jpeg,image/jpg,image/png,image/webp"*/}
+          {/*    onChange={(e) => {*/}
+          {/*      if (e.target.files && e.target.files[0]) {*/}
+          {/*        addPhotos([e.target.files[0]]);*/}
+          {/*      }*/}
+          {/*    }}*/}
+          {/*    disabled={isLoading}*/}
+          {/*    className="hidden"*/}
+          {/*    name="single_photo"*/}
+          {/*    id="single_photo"*/}
+          {/*  />*/}
+
+          {/*  /!* Единственная кнопка загрузки фотографий - увеличенная с дизайном основной кнопки *!/*/}
+          {/*  <button*/}
+          {/*    type="button"*/}
+          {/*    onClick={() => singlePhotoInputRef.current?.click()}*/}
+          {/*    disabled={isLoading || formData.photos.length >= 10}*/}
+          {/*    className={`w-full photo-upload-button ${*/}
+          {/*      validationErrors.photos */}
+          {/*        ? 'border-red-400 bg-red-50 hover:bg-red-100' */}
+          {/*        : formData.photos.length >= 10*/}
+          {/*          ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'*/}
+          {/*          : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'*/}
+          {/*    }`}*/}
+          {/*  >*/}
+          {/*    <div className="flex items-center justify-center gap-3">*/}
+          {/*      <Camera size={24} className="text-purple-600" />*/}
+          {/*      <div className="text-center">*/}
+          {/*        <div className="font-semibold text-purple-700 text-lg">*/}
+          {/*          {formData.photos.length >= 10*/}
+          {/*            ? 'Достигнут максимум (10 фото)'*/}
+          {/*            : 'Добавить по одной фотографии'*/}
+          {/*          }*/}
+          {/*        </div>*/}
+          {/*        <div className="text-sm text-purple-600">*/}
+          {/*          {formData.photos.length > 0*/}
+          {/*            ? `Загружено: ${formData.photos.length} из 10`*/}
+          {/*            : 'Нажмите для выбора фотографии'*/}
+          {/*          }*/}
+          {/*        </div>*/}
+          {/*      </div>*/}
+          {/*    </div>*/}
+          {/*  </button>*/}
+
+          {/*  /!* Показываем загруженные фотографии *!/*/}
+          {/*  {formData.photos.length > 0 && (*/}
+          {/*    <div className="mt-4 space-y-2">*/}
+          {/*      <h4 className="text-sm font-medium text-green-700 mb-2">*/}
+          {/*        ✅ Загруженные фотографии ({formData.photos.length}):*/}
+          {/*      </h4>*/}
+          {/*      <div className="space-y-2">*/}
+          {/*        {formData.photos.map((photo, index) => (*/}
+          {/*          <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">*/}
+          {/*            <div className="flex items-start gap-3">*/}
+          {/*              <Image size={20} className="text-green-500 mt-0.5 flex-shrink-0" />*/}
+          {/*              <div className="flex-1 min-w-0">*/}
+          {/*                <p className="text-sm font-medium text-green-700 truncate mb-1">*/}
+          {/*                  📄 {photo.name}*/}
+          {/*                </p>*/}
+          {/*                <div className="flex items-center gap-4 text-xs text-green-600">*/}
+          {/*                  <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>*/}
+          {/*                  <span>🖼️ {photo.type}</span>*/}
+          {/*                </div>*/}
+          {/*              </div>*/}
+          {/*              <button*/}
+          {/*                type="button"*/}
+          {/*                onClick={() => handleDeletePhotoClick(index)}*/}
+          {/*                className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"*/}
+          {/*                disabled={isLoading}*/}
+          {/*              >*/}
+          {/*                <XCircle size={16} />*/}
+          {/*              </button>*/}
+          {/*            </div>*/}
+          {/*          </div>*/}
+          {/*        ))}*/}
+          {/*      </div>*/}
+          {/*    </div>*/}
+          {/*  )}*/}
+
+          {/*  /!* Сообщение об ошибке или подсказка - УЛУЧШЕНО *!/*/}
+          {/*  {formData.photos.length === 0 && (*/}
+          {/*    <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${*/}
+          {/*      validationErrors.photos */}
+          {/*        ? 'border-red-300 bg-red-50 text-red-600' */}
+          {/*        : 'border-gray-300 bg-gray-50 text-gray-500'*/}
+          {/*    }`}>*/}
+          {/*      <Camera size={32} className="mx-auto mb-3 opacity-50" />*/}
+          {/*      <p className="text-sm font-medium mb-1">*/}
+          {/*        {validationErrors.photos*/}
+          {/*          ? '❌ Необходимо добавить фотографии накладных'*/}
+          {/*          : '📸 Нажмите кнопку выше для добавления фотографий'*/}
+          {/*        }*/}
+          {/*      </p>*/}
+          {/*      <p className="text-xs text-gray-400 mb-2">*/}
+          {/*        Рекомендуется 5-10 четких фотографий накладных*/}
+          {/*      </p>*/}
+          {/*      <p className="text-xs text-amber-600">*/}
+          {/*        💡 Добавляйте фотографии по одной для стабильной работы*/}
+          {/*      </p>*/}
+          {/*    </div>*/}
+          {/*  )}*/}
+          {/*</div>*/}
 
           {/* НОВОЕ: Секция дополнительных фото - показывается когда основных фото 10 */}
           {formData.photos.length === 10 && (
@@ -696,7 +730,7 @@ export const ReceivingForm = ({
 
           {/* Kitchen Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-orange-600 mb-3">🍳 Кухня</h3>
+            <h3 className="text-lg font-semibold text-orange-600 mb-3">Поставщики</h3>
             <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
             {formData.kitchen.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
@@ -746,7 +780,7 @@ export const ReceivingForm = ({
 
           {/* Bar Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">🍹 Бар</h3>
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">Перемещение с другой точки к вам</h3>
             <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
             {formData.bar.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
@@ -796,7 +830,7 @@ export const ReceivingForm = ({
 
           {/* Packaging Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-green-600 mb-3">📦 Упаковки/хоз</h3>
+            <h3 className="text-lg font-semibold text-green-600 mb-3">Покупки с магазина</h3>
             <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (пачки/шт)</p>
             {formData.packaging.map((item, index) => (
               <div key={index} className="grid grid-cols-3 gap-2 mb-2">
@@ -919,3 +953,4 @@ export const ReceivingForm = ({
     </>
   );
 };
+

@@ -9,8 +9,8 @@ services:
       POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
     restart: always
     shm_size: 128mb
 
@@ -43,5 +43,3 @@ services:
       - ./frontend:/app
       - /app/node_modules
 
-volumes:
-  postgres_data:

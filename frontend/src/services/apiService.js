@@ -142,6 +142,46 @@ export const apiService = {
     }
   },
 
+  // ===== МЕТОДЫ ДЛЯ ПРОСМОТРА ОТЧЕТОВ =====
+
+  // Получение отчетов с пагинацией и фильтрацией
+  async getReports(reportType, params = {}) {
+    console.log(`🚀 Получаем отчеты типа ${reportType}...`, params);
+    try {
+      const queryParams = new URLSearchParams();
+
+      // Добавляем параметры фильтрации
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+
+      const url = `${API_BASE_URL}/${reportType}/list?${queryParams}`;
+      console.log('📡 Request URL:', url);
+
+      const response = await fetch(url);
+      return await handleResponse(response, 'getReports');
+    } catch (error) {
+      console.error('❌ getReports error:', error);
+      throw error;
+    }
+  },
+
+  // Получение конкретного отчета по ID
+  async getReport(reportType, reportId) {
+    console.log(`🚀 Получаем отчет ${reportType}/${reportId}...`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/${reportType}/${reportId}`);
+      return await handleResponse(response, 'getReport');
+    } catch (error) {
+      console.error('❌ getReport error:', error);
+      throw error;
+    }
+  },
+
+  // ===== СУЩЕСТВУЮЩИЕ МЕТОДЫ =====
+
   // ===== МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ТОВАРАМИ =====
 
   // Получение списка товаров

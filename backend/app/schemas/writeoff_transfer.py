@@ -42,7 +42,12 @@ class WriteoffTransferCreate(BaseModel):
     """Схема для создания акта списания/перемещения"""
     location: str = Field(
         ...,
-        description="Название локации",
+        description="Название локации отправления",
+        example="Гагарина 48/1"
+    )
+    location_to: Optional[str] = Field(
+        None,
+        description="Название локации назначения (для перемещений)",
         example="Абдулхакима Исмаилова 51"
     )
     shift_type: str = Field(description="Тип смены")
@@ -65,15 +70,16 @@ class WriteoffTransferCreate(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "location": "Абдулхакима Исмаилова 51",
+                "location": "Гагарина 48/1",
+                "location_to": "Абдулхакима Исмаилова 51",
                 "report_date": "2025-05-24",
                 "writeoffs": [
                     {"name": "Курица жареная", "weight": 2.0, "unit": "кг", "reason": "Пересушена"},
                     {"name": "Соус сырный", "weight": 1.0, "unit": "кг", "reason": "Истёк срок годности"}
                 ],
                 "transfers": [
-                    {"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "На точку Гайдара"},
-                    {"name": "Лаваш", "weight": 6.0, "unit": "кг", "reason": "На точку Гагарина"}
+                    {"name": "Вода Горная", "weight": 12.0, "unit": "кг", "reason": "Перемещение на другую точку"},
+                    {"name": "Лаваш", "weight": 6.0, "unit": "кг", "reason": "Перемещение на другую точку"}
                 ]
             }
         }

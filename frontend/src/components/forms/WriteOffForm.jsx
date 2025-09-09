@@ -123,7 +123,7 @@ export const WriteOffForm = ({
       const apiFormData = new FormData();
 
       // Основные поля
-      apiFormData.append('location', formData.location);
+      apiFormData.append('location_from', formData.location);
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
       apiFormData.append('cashier_name', formData.cashierName);
       apiFormData.append('writeoff_or_transfer', formData.writeoff_or_transfer);

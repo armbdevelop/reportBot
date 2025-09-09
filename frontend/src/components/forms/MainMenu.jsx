@@ -1,6 +1,4 @@
-import React from 'react';
 import { DraftCard } from '../common/DraftCard';
-import { Settings } from 'lucide-react';
 
 // Main Menu Component - ДОБАВЛЕНО: отдельные кнопки для списаний и перемещений
 export const MainMenu = ({
@@ -88,26 +86,6 @@ export const MainMenu = ({
             onClick={() => {
               setCurrentDraftId(null);
               setValidationErrors({});
-              setCurrentForm('inventory');
-            }}
-            className="w-full p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="text-2xl">📦</div>
-                <div className="text-left">
-                  <h3 className="font-semibold text-lg">Ежедневная инвентаризация</h3>
-                  <p className="text-blue-100 text-sm">Подсчет остатков</p>
-                </div>
-              </div>
-              <div className="text-blue-100">→</div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentDraftId(null);
-              setValidationErrors({});
               setCurrentForm('receiving');
             }}
             className="w-full p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
@@ -168,3 +146,5 @@ export const MainMenu = ({
     </div>
   );
 };
+
+export default MainMenu;

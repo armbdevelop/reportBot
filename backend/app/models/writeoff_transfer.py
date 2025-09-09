@@ -6,7 +6,8 @@ from .base import Base
 class WriteoffTransfer(Base):
     id = Column(Integer, primary_key=True, index=True)
 
-    location = Column(String(255), nullable=False)
+    location = Column(String(255), nullable=False)  # Локация отправления
+    location_to = Column(String(255), nullable=True)  # Локация назначения (для перемещений)
     shift_type = Column(String(20), nullable=False)  # "morning" или "night"
     cashier_name = Column(String(255), nullable=False)
     created_date = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)  # Когда создан

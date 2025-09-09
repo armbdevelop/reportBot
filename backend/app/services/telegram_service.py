@@ -433,7 +433,7 @@ class TelegramService:
             return False
 
         try:
-            topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
+            topic_id = self.get_topic_id_by_location("Перемещения")
 
             # Форматируем сообщение
             message = self._format_writeoff_transfer_message(report_data)
@@ -624,7 +624,7 @@ class TelegramService:
         # Кухня
         kuxnya = data.get('kuxnya', [])
         if kuxnya:
-            message += "🍳 <b>КУХНЯ:</b>\n"
+            message += "🍳 <b>Поставщики:</b>\n"
             for item in kuxnya:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)
@@ -635,7 +635,7 @@ class TelegramService:
         # Бар
         bar = data.get('bar', [])
         if bar:
-            message += "🍹 <b>БАР:</b>\n"
+            message += "🍹 <b>Перемещение с другой точки к вам:</b>\n"
             for item in bar:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)
@@ -646,7 +646,7 @@ class TelegramService:
         # Упаковки/хоз
         upakovki = data.get('upakovki_xoz', [])
         if upakovki:
-            message += "📦 <b>УПАКОВКИ/ХОЗ:</b>\n"
+            message += "📦 <b>Покупки с магазина:</b>\n"
             for item in upakovki:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)
@@ -658,39 +658,71 @@ class TelegramService:
     def _format_writeoff_transfer_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение акта списания/перемещения"""
 
-        user_date = data.get('date')
-        if user_date:
-            # Если date - это datetime объект
-            if hasattr(user_date, 'strftime'):
-                formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
-            # Если date - это строка
-            elif isinstance(user_date, str):
-                try:
-                    # Пытаемся парсить ISO формат
-                    parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
-                    formatted_date = parsed_date.strftime('%d.%m.%Y %H:%M')
-                except:
-                    formatted_date = user_date
-            else:
-                formatted_date = str(user_date)
+        # Обрабатываем дату и время отчета из отдельных полей
+        report_date = data.get('report_date')
+        report_time = data.get('report_time')
+
+        if report_date and report_time:
+            # Если есть и дата, и время отчета
+            try:
+                if hasattr(report_date, 'strftime') and hasattr(report_time, 'strftime'):
+                    # Если это объекты date и time
+                    formatted_date = f"{report_date.strftime('%d.%m.%Y')} {report_time.strftime('%H:%M')}"
+                else:
+                    # Если это строки
+                    formatted_date = f"{report_date} {report_time}"
+            except:
+                formatted_date = f"{report_date} {report_time}"
+        elif report_date:
+            # Если есть только дата отчета
+            try:
+                if hasattr(report_date, 'strftime'):
+                    formatted_date = report_date.strftime('%d.%m.%Y')
+                else:
+                    formatted_date = str(report_date)
+            except:
+                formatted_date = str(report_date)
         else:
-            # Fallback на текущее время если дата не указана
-            formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime(
-                '%d.%m.%Y %H:%M')
+            # Fallback: используем дату создания записи или текущее время
+            user_date = data.get('date')
+            if user_date:
+                # Если date - это datetime объект
+                if hasattr(user_date, 'strftime'):
+                    formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
+                # Если date - это строка
+                elif isinstance(user_date, str):
+                    try:
+                        # Пытаемся парсить ISO формат
+                        parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
+                        formatted_date = parsed_date.strftime('%d.%m.%Y %H:%M')
+                    except:
+                        formatted_date = user_date
+                else:
+                    formatted_date = str(user_date)
+            else:
+                # Fallback на текущее время если дата не указана
+                formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime(
+                    '%d.%m.%Y %H:%M')
 
-        message = f"""📋 <b>АКТ {data.get('writeoff_or_transfer')}</b>
-        
+        # Определяем локацию назначения для перемещений
+        location_to = data.get('location_to', '')
+        location_info = data.get('location', 'Не указана')
+        print(data)
+        if location_to:
+            location_info += f" → {location_to}"
 
-📍 <b>Локация:</b> {data.get('location', 'Не указана')}
+        message = f"""📋 <b>АКТ {data.get('writeoff_or_transfer', 'СПИСАНИЯ/ПЕРЕМЕЩЕНИЯ')}</b>
+
+📍 <b>Локация:</b> {location_info}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-📆 <b>Дата:</b> {formatted_date}
+📆 <b>Дата отчета:</b> {formatted_date}
 """
 
         # Списания
         writeoffs = data.get('writeoffs', [])
         if writeoffs:
-            message += "🗑 <b>СПИСАНИЕ:</b>\n"
+            message += "\n🗑 <b>СПИСАНИЕ:</b>\n"
             for item in writeoffs:
                 name = item.get('name', 'Не указано')
                 weight = int(item.get('weight', 0))
@@ -702,13 +734,16 @@ class TelegramService:
         # Перемещения
         transfers = data.get('transfers', [])
         if transfers:
-            message += "🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
+            message += "\n🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
+            if location_to:
+                message += f"📍 <b>Направление:</b> {data.get('location', '')} → {location_to}\n"
+
             for item in transfers:
                 name = item.get('name', 'Не указано')
                 weight = int(item.get('weight', 0))
                 unit = item.get('unit', 'кг')
                 reason = item.get('reason', 'Не указано')
-                message += f"• {name} — <b>{weight} {unit}</b> — {reason}\n"
+                message += f"• {name}\n"
 
         return message
 
@@ -929,3 +964,4 @@ class TelegramService:
         except Exception as e:
             print(f"⚠️  Ошибка отправки фотографий в Telegram: {str(e)}")
             return False
+

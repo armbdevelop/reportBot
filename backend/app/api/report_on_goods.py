@@ -1,12 +1,26 @@
-from datetime import datetime
+from datetime import datetime, date
 
-from fastapi import APIRouter, status, Form, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, status, Form, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, desc, select, func
 from app.crud import ReportOnGoodCRUD
 from app.schemas import ReportOnGoodsCreate, ReportOnGoodsResponse, KuxnyaJson, BarJson, UpakovkyJson
 from typing import Optional, List
 import json
 from app.core import get_db
+from app.models import ReportOnGoods
+
+# Коды локаций -> полные адреса
+LOCATION_MAP = {
+    'gagarina': 'Гагарина 48/1',
+    'abdulhakima': 'Абдулхакима Исмаилова 51',
+    'gaydara': 'Гайдара Гаджиева 7Б',
+}
+
+def normalize_location(loc: Optional[str]) -> Optional[str]:
+    if not loc or loc == 'all':
+        return None
+    return LOCATION_MAP.get(loc, loc)
 
 router = APIRouter()
 repg = ReportOnGoodCRUD()
@@ -114,7 +128,7 @@ async def create_report_on_goods(
 Пример: [{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]""",
             example='[{"name": "Стаканы пластиковые", "count": 100, "unit": "шт"}, {"name": "Салфетки", "count": 50, "unit": "упаковка"}]'
         ),
-        photos: List[UploadFile] = File(None, description="Фотографии товаров/накладных"),
+        photos: Optional[List[UploadFile]] = File(None, description="Фотографии товаров/накладных"),
         shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
         db: AsyncSession = Depends(get_db),
@@ -359,3 +373,137 @@ async def send_photo(
         raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=str(e))
+
+
+@router.get(
+    "/list",
+    summary="Получить список отчетов приема товаров",
+    description="Возвращает список отчетов приема товаров с пагинацией и фильтрацией по дате и локации"
+)
+async def get_receiving_reports_list(
+    start_date: Optional[date] = Query(None, description="Дата начала периода (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Дата окончания периода (YYYY-MM-DD)"),
+    location: Optional[str] = Query(None, description="Фильтр по локации"),
+    page: int = Query(1, ge=1, description="Номер страницы"),
+    per_page: int = Query(10, ge=1, le=100, description="Количество элементов на странице"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Получает список отчетов приема товаров с пагинацией и фильтрацией.
+    """
+    try:
+        # Условия фильтрации
+        conditions = []
+
+        if start_date:
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            conditions.append(ReportOnGoods.date >= start_datetime)
+
+        if end_date:
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            conditions.append(ReportOnGoods.date <= end_datetime)
+
+        if location:
+            norm_loc = normalize_location(location)
+            if norm_loc:
+                conditions.append(ReportOnGoods.location == norm_loc)
+
+        # Подсчет общего количества
+        count_stmt = select(func.count(ReportOnGoods.id))
+        if conditions:
+            count_stmt = count_stmt.where(and_(*conditions))
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
+        # Пагинация
+        offset = (page - 1) * per_page
+
+        # Основной запрос
+        stmt = select(ReportOnGoods)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        stmt = stmt.order_by(desc(ReportOnGoods.date)).offset(offset).limit(per_page)
+
+        result = await db.execute(stmt)
+        reports = result.scalars().all()
+
+        # Формируем ответ
+        reports_list = []
+        for report in reports:
+            goods_count = 0
+            if report.kuxnya:
+                goods_count += len(report.kuxnya)
+            if report.bar:
+                goods_count += len(report.bar)
+            if report.upakovki_xoz:
+                goods_count += len(report.upakovki_xoz)
+
+            reports_list.append({
+                "id": report.id,
+                "location": report.location,
+                "cashier_name": report.cashier_name,
+                "shift_type": report.shift_type,
+                "goods_count": goods_count,
+                "supplier": getattr(report, 'supplier', None),
+                "created_at": report.date.isoformat() if report.date else None
+            })
+
+        return {
+            "reports": reports_list,
+            "total": total_count,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_count + per_page - 1) // per_page
+        }
+
+    except Exception as e:
+        print(f"❌ Ошибка получения списка отчетов приема товаров: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка получения списка отчетов"
+        )
+
+
+@router.get(
+    "/{report_id}",
+    summary="Получить отчет приема товаров по ID",
+    description="Возвращает детальную информацию об отчете приема товаров"
+)
+async def get_receiving_report(
+    report_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Получает детальную информацию об отчете приема товаров по ID.
+    """
+    try:
+        report = await db.get(ReportOnGoods, report_id)
+
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Отчет не найден"
+            )
+
+        return {
+            "id": report.id,
+            "location": report.location,
+            "cashier_name": report.cashier_name,
+            "shift_type": report.shift_type,
+            "kuxnya": report.kuxnya if report.kuxnya else [],
+            "bar": report.bar if report.bar else [],
+            "upakovki": report.upakovki_xoz if report.upakovki_xoz else [],
+            "photos_urls": report.photos_urls if hasattr(report, 'photos_urls') else [],
+            "supplier": getattr(report, 'supplier', None),
+            "created_at": report.date.isoformat() if report.date else None,
+            "updated_at": None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка получения отчета приема товаров: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка получения отчета"
+        )
