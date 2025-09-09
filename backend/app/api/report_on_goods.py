@@ -107,7 +107,7 @@ async def create_report_on_goods(
             default=None,
             description="""JSON массив товаров для бара.
 
-Каждый элемент должен содержать:
+Каждый элемен�� должен содержать:
 - name: название товара (строка)
 - count: количество (положительное число)
 - unit: единица измерения (строка)
@@ -164,7 +164,7 @@ async def create_report_on_goods(
     - Моющие средства
 
     ## Формат JSON
-    Все категории принимают массив объектов с полями:
+    Все категории принимают массив объектов с поля��и:
     - `name`: название товара (обязательно)
     - `count`: количество штук (обязательно, > 0)
     - `unit`: единица измерения (обязательно)
@@ -329,7 +329,7 @@ async def create_report_on_goods(
     status_code=status.HTTP_201_CREATED,
     description="ОТПРАВКА НЕ ДОСТАЮЩИХ ФОТО В ОТЧЕТ ПРИЕМА ТОВАРА",
     responses={201: {"Успешно отправлено": "статус - 201"},
-               401: {"Плохой запрос": "статус 400 что то пошло не так"}}
+               401: {"Плохой запро��": "статус 400 что то пошло не так"}}
 
 )
 async def send_photo(
@@ -359,7 +359,7 @@ async def send_photo(
             if len(content) > 20 * 1024 * 1024:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Файл {photo.filename} слишком большой (максимум 20MB)"
+                    detail=f"Файл {photo.filename} слишком большой (ма��симум 20MB)"
                 )
 
             photos_data.append({
@@ -430,13 +430,45 @@ async def get_receiving_reports_list(
         # Формируем ответ
         reports_list = []
         for report in reports:
+            # Подсчитываем общее количество товаров
             goods_count = 0
+            total_items = []
+
+            # Обрабатываем кухню
+            kuxnya_items = []
             if report.kuxnya:
+                for item in report.kuxnya:
+                    kuxnya_items.append({
+                        "name": item.get("name", ""),
+                        "count": item.get("count", 0),
+                        "unit": item.get("unit", "")
+                    })
                 goods_count += len(report.kuxnya)
+                total_items.extend(kuxnya_items)
+
+            # Обрабатываем бар
+            bar_items = []
             if report.bar:
+                for item in report.bar:
+                    bar_items.append({
+                        "name": item.get("name", ""),
+                        "count": item.get("count", 0),
+                        "unit": item.get("unit", "")
+                    })
                 goods_count += len(report.bar)
+                total_items.extend(bar_items)
+
+            # Обрабатываем упаковки/хоз
+            upakovki_items = []
             if report.upakovki_xoz:
+                for item in report.upakovki_xoz:
+                    upakovki_items.append({
+                        "name": item.get("name", ""),
+                        "count": item.get("count", 0),
+                        "unit": item.get("unit", "")
+                    })
                 goods_count += len(report.upakovki_xoz)
+                total_items.extend(upakovki_items)
 
             reports_list.append({
                 "id": report.id,
@@ -445,7 +477,11 @@ async def get_receiving_reports_list(
                 "shift_type": report.shift_type,
                 "goods_count": goods_count,
                 "supplier": getattr(report, 'supplier', None),
-                "created_at": report.date.isoformat() if report.date else None
+                "created_at": report.date.isoformat() if report.date else None,
+                "kuxnya": kuxnya_items,
+                "bar": bar_items,
+                "upakovki": upakovki_items,
+                "total_items": total_items
             })
 
         return {
@@ -467,7 +503,7 @@ async def get_receiving_reports_list(
 @router.get(
     "/{report_id}",
     summary="Получить отчет приема товаров по ID",
-    description="Возвращает детальную информацию об отчете приема товаров"
+    description="Возвращает детальную информацию об отчете приема тов��ров"
 )
 async def get_receiving_report(
     report_id: int,

@@ -736,13 +736,10 @@ class TelegramService:
         if transfers:
             message += "\n🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             if location_to:
-                message += f"📍 <b>Направление:</b> {data.get('location', '')} → {location_to}\n"
+                message += f"📍 <b>Направление:</b>С {data.get('location', '')} НА → {location_to}\n"
 
             for item in transfers:
                 name = item.get('name', 'Не указано')
-                weight = int(item.get('weight', 0))
-                unit = item.get('unit', 'кг')
-                reason = item.get('reason', 'Не указано')
                 message += f"• {name}\n"
 
         return message

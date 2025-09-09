@@ -324,45 +324,134 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
   );
   // Компонент для отображения отчетов приема товара
   const ReceivingReportCard = ({ report }) => (
-    <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 mb-3">
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center space-x-2">
-          <div className="bg-blue-500 text-white p-1.5 rounded text-sm">📦</div>
+    <div className="bg-white border border-blue-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 mb-4">
+      {/* Заголовок отчета */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="bg-blue-500 text-white p-2 rounded-lg text-lg">📦</div>
           <div>
-            <h3 className="font-semibold text-sm text-gray-900">Прием товара #{report.id}</h3>
-            <p className="text-xs text-blue-600">📍 {report.location}</p>
+            <h3 className="font-semibold text-lg text-gray-900">Прием товара #{report.id}</h3>
+            <p className="text-sm text-blue-600">📍 {report.location}</p>
           </div>
         </div>
-        <p className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+        <p className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-lg">
           {formatDate(report.created_at)}
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        {report.supplier && (
-          <div className="bg-gray-50 p-2 rounded text-center">
-            <p className="text-xs text-gray-600">Поставщик</p>
-            <p className="font-medium text-sm truncate">{report.supplier}</p>
+      {/* Основная информация */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="bg-gray-50 p-3 rounded-lg text-center">
+          <p className="text-sm text-gray-600">Кассир</p>
+          <p className="font-medium text-base">{report.cashier_name}</p>
+        </div>
+        <div className="bg-gray-50 p-3 rounded-lg text-center">
+          <p className="text-sm text-gray-600">Смена</p>
+          <p className="font-medium text-base">
+            {report.shift_type === 'morning' ? 'Утренняя' : 'Ночная'}
+          </p>
+        </div>
+        <div className="bg-blue-50 p-3 rounded-lg text-center">
+          <p className="text-sm text-blue-700">Всего позиций</p>
+          <p className="font-semibold text-lg text-blue-800">{report.goods_count || 0}</p>
+        </div>
+      </div>
+
+      {/* Товары по категориям */}
+      <div className="space-y-4">
+        {/* Кухня */}
+        {report.kuxnya && report.kuxnya.length > 0 && (
+          <div className="border border-green-200 rounded-lg p-3 bg-green-50">
+            <h4 className="font-semibold text-green-800 mb-3 flex items-center">
+              <span className="mr-2">🍳</span>
+              Кухня ({report.kuxnya.length} поз.)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {report.kuxnya.map((item, index) => (
+                <div key={index} className="bg-white p-2 rounded border border-green-200">
+                  <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{item.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-green-700 text-sm">
+                        {item.count} {item.unit}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        {report.items_count && (
-          <div className="bg-gray-50 p-2 rounded text-center">
-            <p className="text-xs text-gray-600">Позиций</p>
-            <p className="font-medium text-sm text-blue-600">{report.items_count}</p>
+
+        {/* Бар */}
+        {report.bar && report.bar.length > 0 && (
+          <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
+            <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
+              <span className="mr-2">🍹</span>
+              Бар ({report.bar.length} поз.)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {report.bar.map((item, index) => (
+                <div key={index} className="bg-white p-2 rounded border border-purple-200">
+                  <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{item.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-purple-700 text-sm">
+                        {item.count} {item.unit}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        {report.total_amount && (
-          <div className="bg-gray-50 p-2 rounded text-center">
-            <p className="text-xs text-gray-600">Сумма</p>
-            <p className="font-medium text-sm text-blue-600">{formatAmount(report.total_amount)}</p>
+
+        {/* Упаковки/Хозтовары */}
+        {report.upakovki && report.upakovki.length > 0 && (
+          <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
+            <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
+              <span className="mr-2">📦</span>
+              Упаковки/Хозтовары ({report.upakovki.length} поз.)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {report.upakovki.map((item, index) => (
+                <div key={index} className="bg-white p-2 rounded border border-orange-200">
+                  <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{item.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-orange-700 text-sm">
+                        {item.count} {item.unit}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Если нет товаров */}
+        {(!report.kuxnya || report.kuxnya.length === 0) &&
+         (!report.bar || report.bar.length === 0) &&
+         (!report.upakovki || report.upakovki.length === 0) && (
+          <div className="bg-gray-50 p-4 rounded-lg text-center">
+            <p className="text-gray-500">Товары не указаны</p>
           </div>
         )}
       </div>
 
-      {report.description && (
-        <div className="bg-blue-50 p-2 rounded">
-          <p className="text-xs font-medium text-blue-700 mb-1">Описание:</p>
-          <p className="text-xs text-blue-800">{report.description}</p>
+      {/* Дополнительная информация */}
+      {report.supplier && (
+        <div className="mt-4 bg-blue-50 p-3 rounded-lg">
+          <p className="text-sm font-medium text-blue-700 mb-1">Поставщик:</p>
+          <p className="text-sm text-blue-800">{report.supplier}</p>
         </div>
       )}
     </div>
@@ -582,7 +671,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
             </p>
           </div>
 
-          {/* Выбор катег��рии отчета */}
+          {/* Выбор категори�� отчета */}
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
               <span className="mr-2">📋</span>
