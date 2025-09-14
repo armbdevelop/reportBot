@@ -94,13 +94,30 @@ export const CashierReportForm = ({
       }
     });
 
-    // Очищаем ошибку валидации при изменении поля
+    // Очищаем ошибки валидации при изменении поля
     if (validationErrors[field]) {
       setValidationErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
       });
+    }
+
+    // Очищаем ошибки для полей приходов и расходов
+    if (index !== null && subfield) {
+      const errorKey = field === 'incomes'
+        ? `income-${subfield}-${index}`
+        : field === 'expenses'
+          ? `expense-${subfield === 'name' ? 'name' : 'amount'}-${index}`
+          : null;
+
+      if (errorKey && validationErrors[errorKey]) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[errorKey];
+          return newErrors;
+        });
+      }
     }
   }, [validationErrors, setValidationErrors]);
 
@@ -180,8 +197,30 @@ export const CashierReportForm = ({
       errors.factCash = 'Введите фактическую сумму наличных';
     }
 
+    // Проверка приходов: если указана сумма, комментарий обязателен
+    formData.incomes.forEach((income, index) => {
+      if (income.amount && income.amount.trim() && (!income.comment || !income.comment.trim())) {
+        errors[`income-comment-${index}`] = 'Комментарий обязателен при указании суммы';
+      }
+      if (income.comment && income.comment.trim() && (!income.amount || !income.amount.trim())) {
+        errors[`income-amount-${index}`] = 'Сумма обязательна при указании комментария';
+      }
+    });
+
+    // Проверка расходов: если указана сумма, комментарий обязателен
+    formData.expenses.forEach((expense, index) => {
+      if (expense.amount && expense.amount.trim() && (!expense.name || !expense.name.trim())) {
+        errors[`expense-name-${index}`] = 'Комментарий обязателен при указании суммы';
+      }
+      if (expense.name && expense.name.trim() && (!expense.amount || !expense.amount.trim())) {
+        errors[`expense-amount-${index}`] = 'Сумма обязательна при указании комментария';
+      }
+    });
+
     if (Object.keys(errors).length > 0) {
       showValidationErrors(errors);
+      // Прокручиваем к верху страницы при появлении ошибок
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -235,7 +274,7 @@ export const CashierReportForm = ({
         apiFormData.append('comments', formData.comments.trim());
       }
 
-      const result = await apiService.createShiftReport(apiFormData);
+      await apiService.createShiftReport(apiFormData);
       clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
       showNotification('success', 'Отчет отправлен!', 'Отчет смены успешно отправлен и сохранен в системе');
 
@@ -267,7 +306,7 @@ export const CashierReportForm = ({
             </div>
           </div>
 
-          {/* Ошибки валидации */}
+          {/* Ошибки ва��идации */}
           <ValidationAlert errors={validationErrors} />
 
           {/* Location Selection */}

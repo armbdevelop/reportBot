@@ -433,7 +433,10 @@ class TelegramService:
             return False
 
         try:
-            topic_id = self.get_topic_id_by_location("Перемещения")
+            if report_data.get("writeoffs", []):
+                topic_id = self.get_topic_id_by_location(report_data.get('location', ''))
+            else:
+                topic_id = self.get_topic_id_by_location("Перемещения")
 
             # Форматируем сообщение
             message = self._format_writeoff_transfer_message(report_data)
@@ -736,7 +739,7 @@ class TelegramService:
         if transfers:
             message += "\n🔄 <b>ПЕРЕМЕЩЕНИЕ:</b>\n"
             if location_to:
-                message += f"📍 <b>Направление:</b>С {data.get('location', '')} НА → {location_to}\n"
+                message += f"📍 <b>Направление:</b>С {data.get('location', '')} НА → {location_to}\n\n"
 
             for item in transfers:
                 name = item.get('name', 'Не указано')

@@ -444,7 +444,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
           <div className="border border-green-200 rounded-lg p-3 bg-green-50">
             <h4 className="font-semibold text-green-800 mb-3 flex items-center">
               <span className="mr-2">🍳</span>
-              Кухня ({report.kuxnya.length} поз.)
+              Поставщики ({report.kuxnya.length} поз.)
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {report.kuxnya.map((item, index) => (
@@ -470,7 +470,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
           <div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
             <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
               <span className="mr-2">🍹</span>
-              Бар ({report.bar.length} поз.)
+              Перемещение с другой точки к вам ({report.bar.length} поз.)
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {report.bar.map((item, index) => (
@@ -496,7 +496,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
           <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
             <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
               <span className="mr-2">📦</span>
-              Упаковки/Хозтовары ({report.upakovki.length} поз.)
+              Покупки с магазина ({report.upakovki.length} поз.)
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {report.upakovki.map((item, index) => (

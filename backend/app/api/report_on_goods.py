@@ -433,7 +433,7 @@ async def get_receiving_reports_list(
             # Подсчитываем общее количество товаров
             goods_count = 0
             total_items = []
-
+            
             # Обрабатываем кухню
             kuxnya_items = []
             if report.kuxnya:
