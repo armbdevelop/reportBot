@@ -428,3 +428,48 @@ async def get_writeoff_transfer_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка получения отчета"
         )
+
+
+@router.delete("/writeoff-transfer/{report_id}")
+async def delete_writeoff_transfer_report(
+    report_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Удаление отчета списания или перемещения"""
+    try:
+        # Получаем отчет для проверки существования
+        report = await writeoff_transfer_crud.get(db, id=report_id)
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Отчет не найден"
+            )
+
+        # Удаляем отчет из БД
+        await writeoff_transfer_crud.remove(db, id=report_id)
+        await db.commit()
+
+        # Определяем тип отчета на основе того, какие данные содержит
+        has_writeoffs = report.writeoffs and len(report.writeoffs) > 0
+        has_transfers = report.transfers and len(report.transfers) > 0
+
+        if has_writeoffs and has_transfers:
+            report_type = "списания и перемещения"
+        elif has_writeoffs:
+            report_type = "списания"
+        elif has_transfers:
+            report_type = "перемещения"
+        else:
+            report_type = "списания/перемещения"
+
+        return {"message": f"Отчет {report_type} успешно удален", "deleted_id": report_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка при удалении отчета списания/перемещения {report_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при удалении отчета"
+        )

@@ -543,3 +543,34 @@ async def get_receiving_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка получения отчета"
         )
+
+
+@router.delete("/report-on-goods/{report_id}")
+async def delete_report_on_goods(
+    report_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Удаление отчета приема товара"""
+    try:
+        # Получаем отчет для проверки существования
+        report = await repg.get(db, id=report_id)
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Отчет не найден"
+            )
+        
+        # Удаляем отчет из БД
+        await repg.remove(db, id=report_id)
+        await db.commit()
+        
+        return {"message": "Отчет приема товара успешно удален", "deleted_id": report_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка при удалении отчета приема товара {report_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при удалении отчета"
+        )

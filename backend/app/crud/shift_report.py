@@ -243,3 +243,28 @@ class ShiftReportCRUD:
         except SQLAlchemyError as e:
             await db.rollback()
             raise e
+
+    async def get(self, db: AsyncSession, id: int) -> Optional[ShiftReport]:
+        """Получение отчета по ID"""
+        try:
+            stmt = select(ShiftReport).where(ShiftReport.id == id)
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            print(f"❌ Ошибка получения отчета {id}: {str(e)}")
+            return None
+
+    async def remove(self, db: AsyncSession, id: int) -> bool:
+        """Удаление отчета по ID"""
+        try:
+            stmt = select(ShiftReport).where(ShiftReport.id == id)
+            result = await db.execute(stmt)
+            report = result.scalar_one_or_none()
+            
+            if report:
+                await db.delete(report)
+                return True
+            return False
+        except Exception as e:
+            print(f"❌ Ошибка удаления отчета {id}: {str(e)}")
+            return False

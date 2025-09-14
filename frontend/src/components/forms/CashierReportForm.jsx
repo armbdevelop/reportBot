@@ -28,7 +28,7 @@ export const CashierReportForm = ({
     date: getCurrentMSKTime(),
     cashierName: '',
     incomes: Array(2).fill({ amount: '', comment: '' }),
-    expenses: Array(10).fill({ name: '', amount: '' }),
+    expenses: Array(5).fill({ name: '', amount: '' }),
     iikoData: {
       totalRevenue: '',
       returns: '',
@@ -306,7 +306,7 @@ export const CashierReportForm = ({
             </div>
           </div>
 
-          {/* Ошибки ва��идации */}
+          {/* Ошибки валидации */}
           <ValidationAlert errors={validationErrors} />
 
           {/* Location Selection */}
@@ -428,6 +428,27 @@ export const CashierReportForm = ({
 
           {/* Expenses Section */}
           <div className="mb-6">
+            {/* Информационный блок о правилах расходов - РАЗДЕЛЕН НА ДВА БЛОКА */}
+            
+            {/* Первый блок - Правила (красный цвет) */}
+            <div className="mb-3 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+              <h4 className="text-base font-bold text-red-800 mb-3">🚨 ВНИМАНИЕ! При внесении расходов:</h4>
+              <ul className="text-sm text-red-700 space-y-2 font-semibold">
+                <li>• Указывать максимально подробную информацию (назначение, сотрудник, детали).</li>
+                <li>• Заранее информировать управляющего или менеджера смены о каждом расходе.</li>
+              </ul>
+            </div>
+
+            {/* Второй блок - Примеры (желтый цвет) */}
+            <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
+              <h4 className="text-base font-bold text-yellow-800 mb-3">💡 Примеры корректного описания:</h4>
+              <ul className="text-sm text-yellow-700 space-y-1 pl-2 font-medium">
+                <li>• Зарплата Камиль (повар)</li>
+                <li>• Такси — / оплата передачи с другой точки / оплата за ложный вызов / оплата за не забранный заказ</li>
+                <li>• Оплата накладной от GFC (с указанием наименований товаров)</li>
+              </ul>
+            </div>
+
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
             <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
             {formData.expenses.map((expense, index) => (
@@ -505,10 +526,10 @@ export const CashierReportForm = ({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1 text-gray-700">*Эквайринг:</label>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*СберБанк терминал:</label>
                 <MemoizedInput
                   type="text"
-                  placeholder="Эквайринг"
+                  placeholder="СберБанк терминал"
                   value={formData.iikoData.acquiring}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleInputChange(`iikoData.acquiring`, value)
@@ -520,7 +541,7 @@ export const CashierReportForm = ({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1 text-gray-700">*QR-код (запасной терминал QR):</label>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*QR код — не работает терминал (ТБанк):</label>
                 <MemoizedInput
                   type="text"
                   placeholder="QR-код"
@@ -566,10 +587,10 @@ export const CashierReportForm = ({
               </div>
               {/* НОВЫЕ ПОЛЯ */}
               <div>
-                <label className="text-sm font-medium block mb-1 text-gray-700">*Яндекс.Еда - не пришел заказ в систему:</label>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Я.Еда — оплачен (не пришел заказ в iiko):</label>
                 <MemoizedInput
                   type="text"
-                  placeholder="Яндекс.Еда - не пришел заказ в систему"
+                  placeholder="Я.Еда — оплачен (не пришел заказ в iiko)"
                   value={formData.iikoData.yandexEdaNoSystem}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleInputChange(`iikoData.yandexEdaNoSystem`, value)

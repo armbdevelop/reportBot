@@ -291,5 +291,45 @@ export const apiService = {
       console.error('❌ getDetailedInventoryV2 error:', error);
       throw error;
     }
+  },
+
+  // Методы удаления отчетов
+  async deleteShiftReport(reportId) {
+    console.log(`🗑️ Удаляем кассовый отчет ${reportId}...`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/shift-reports/shift-reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(response, 'deleteShiftReport');
+    } catch (error) {
+      console.error('❌ Ошибка удаления кассового отчета:', error);
+      throw error;
+    }
+  },
+
+  async deleteReceivingReport(reportId) {
+    console.log(`🗑️ Удаляем отчет приема товара ${reportId}...`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/report-on-goods/report-on-goods/${reportId}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(response, 'deleteReceivingReport');
+    } catch (error) {
+      console.error('❌ Ошибка удаления отчета приема товара:', error);
+      throw error;
+    }
+  },
+
+  async deleteWriteoffTransferReport(reportId) {
+    console.log(`🗑️ Удаляем отчет списания/перемещения ${reportId}...`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/writeoff-transfer/writeoff-transfer/${reportId}`, {
+        method: 'DELETE'
+      });
+      return await handleResponse(response, 'deleteWriteoffTransferReport');
+    } catch (error) {
+      console.error('❌ Ошибка удаления отчета списания/перемещения:', error);
+      throw error;
+    }
   }
 };

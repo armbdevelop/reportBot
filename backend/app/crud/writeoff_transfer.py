@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
 from app.schemas import WriteoffTransferCreate
 from app.models import WriteoffTransfer
 from app.services import TelegramService
@@ -91,7 +93,6 @@ class WriteoffTransferCRUD:
         Фоновая отправка акта в Telegram.
         """
         from ..core import db_helper
-        from sqlalchemy import select
 
         try:
             # Создаем новую сессию БД для фоновой задачи
@@ -141,3 +142,29 @@ class WriteoffTransferCRUD:
 
         except Exception as e:
             print(f"⚠️  Критическая ошибка в фоновой отправке Telegram для акта ID {report_id}: {str(e)}")
+
+    async def get(self, db: AsyncSession, id: int) -> Optional[WriteoffTransfer]:
+        """Получение отчета списания/перемещения по ID"""
+        try:
+            stmt = select(WriteoffTransfer).where(WriteoffTransfer.id == id)
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            print(f"❌ Ошибка получения отчета списания/перемещения {id}: {str(e)}")
+            return None
+
+    async def remove(self, db: AsyncSession, id: int) -> bool:
+        """Удаление отчета списания/перемещения по ID"""
+        try:
+            stmt = select(WriteoffTransfer).where(WriteoffTransfer.id == id)
+            result = await db.execute(stmt)
+            report = result.scalar_one_or_none()
+            
+            if report:
+                await db.delete(report)
+                return True
+            return False
+        except Exception as e:
+            print(f"❌ Ошибка удаления отчета списания/перемещения {id}: {str(e)}")
+            return False
+

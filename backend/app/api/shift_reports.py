@@ -417,3 +417,53 @@ async def get_shift_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка получения отчета"
         )
+
+
+@router.delete("/shift-reports/{report_id}")
+async def delete_shift_report(
+    report_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Удаление кассового отчета"""
+    try:
+        # Получаем отчет для проверки существования
+        report = await shift_report_crud.get(db, id=report_id)
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Отчет не найден"
+            )
+        
+        # Удаляем фото если есть
+        if report.photo_path:
+            import os
+            try:
+                # Формируем полный путь к файлу
+                if report.photo_path.startswith('/uploads/'):
+                    file_path = f"/app{report.photo_path}"
+                elif report.photo_path.startswith('uploads/'):
+                    file_path = f"/app/{report.photo_path}"
+                else:
+                    file_path = f"/app/uploads/shift_reports/{report.photo_path}"
+                
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"✅ Удален файл фото: {file_path}")
+            except Exception as e:
+                print(f"⚠️ Не удалось удалить файл фото: {e}")
+        
+        # Удаляем отчет из БД
+        await shift_report_crud.remove(db, id=report_id)
+        await db.commit()
+        
+        return {"message": "Отчет успешно удален", "deleted_id": report_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка при удалении отчета {report_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при удалении отчета"
+        )
