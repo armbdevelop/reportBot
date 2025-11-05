@@ -444,15 +444,15 @@ async def delete_writeoff_transfer_report(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Отчет не найден"
             )
-
+        
         # Удаляем отчет из БД
         await writeoff_transfer_crud.remove(db, id=report_id)
         await db.commit()
-
+        
         # Определяем тип отчета на основе того, какие данные содержит
         has_writeoffs = report.writeoffs and len(report.writeoffs) > 0
         has_transfers = report.transfers and len(report.transfers) > 0
-
+        
         if has_writeoffs and has_transfers:
             report_type = "списания и перемещения"
         elif has_writeoffs:
@@ -461,9 +461,9 @@ async def delete_writeoff_transfer_report(
             report_type = "перемещения"
         else:
             report_type = "списания/перемещения"
-
+            
         return {"message": f"Отчет {report_type} успешно удален", "deleted_id": report_id}
-
+        
     except HTTPException:
         raise
     except Exception as e:
