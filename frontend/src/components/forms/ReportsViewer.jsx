@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 const REPORT_CATEGORIES = [
 	{
@@ -25,6 +25,16 @@ const REPORT_CATEGORIES = [
 		icon: '❌',
 		color: 'bg-red-50 border-red-200',
 		headerColor: 'bg-red-500',
+	},
+	{
+		id: 'writeoff-period-reports',
+		name: 'Списания за период',
+		api: 'writeoff-transfer',
+		endpoint: 'period',
+		useDateTime: true,
+		icon: '🗓️',
+		color: 'bg-orange-50 border-orange-200',
+		headerColor: 'bg-orange-500',
 	},
 	{
 		id: 'transfer-reports',
@@ -57,6 +67,7 @@ const getLocationDisplayName = (locationValue, categoryId) => {
 			return `Касса - ${locationValue}`;
 		case 'receiving-reports':
 		case 'writeoff-reports':
+		case 'writeoff-period-reports':
 			return `Отчет - ${locationValue}`;
 		case 'transfer-reports':
 			return locationValue;
@@ -85,13 +96,15 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	const [selectedLocation, setSelectedLocation] = useState('all');
 	const [startDate, setStartDate] = useState('');
 	const [endDate, setEndDate] = useState('');
+	const [startTime, setStartTime] = useState('00:00');
+	const [endTime, setEndTime] = useState('23:59');
 	const [reports, setReports] = useState([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [totalCount, setTotalCount] = useState(0);
-	const [hasSearched, setHasSearched] = useState(false); // Новое состояние для отслеживания был ли выполнен поиск
+	const [hasSearched, setHasSearched] = useState(false);
 
 	// Состояние для модального окна удаления
 	const [deleteModal, setDeleteModal] = useState({
@@ -102,6 +115,11 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	});
 
 	const ITEMS_PER_PAGE = 10;
+
+	// Мемоизируем текущую категорию для предотвращения лишних вычислений
+	const currentCategory = useMemo(() => {
+		return REPORT_CATEGORIES.find(cat => cat.id === selectedCategory);
+	}, [selectedCategory]);
 
 	// Установка даты по умолчанию (последние 30 дней)
 	useEffect(() => {
@@ -119,26 +137,38 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 		setError('');
 
 		try {
-			const category = REPORT_CATEGORIES.find((cat) => cat.id === selectedCategory);
-			if (!category) throw new Error('Неизвестная категория отчета');
+			if (!currentCategory) throw new Error('Неизвестная категория отчета');
 
 			const params = {
-				start_date: startDate,
-				end_date: endDate,
 				page: currentPage,
 				per_page: ITEMS_PER_PAGE,
 			};
 
+			// Если категория использует datetime, отправляем datetime параметры
+			if (currentCategory.useDateTime) {
+				params.start_datetime = `${startDate}T${startTime}`;
+				params.end_datetime = `${endDate}T${endTime}`;
+			} else {
+				// Иначе используем обычные даты
+				params.start_date = startDate;
+				params.end_date = endDate;
+			}
+
 			if (selectedLocation !== 'all') {
-				// Используем функцию getLocationDisplayName для получения правильного названия с префиксом
 				params.location = getLocationDisplayName(selectedLocation, selectedCategory);
 			}
 
-			if (category.type) {
-				params.type = category.type;
+			if (currentCategory.type) {
+				params.type = currentCategory.type;
 			}
 
-			const response = await apiService.getReports(category.api, params);
+			// Используем кастомный endpoint если указан
+			let apiPath = currentCategory.api;
+			if (currentCategory.endpoint) {
+				apiPath = `${currentCategory.api}/${currentCategory.endpoint}`;
+			}
+
+			const response = await apiService.getReports(apiPath, params);
 
 			setReports(response.reports || []);
 			setTotalCount(response.total || 0);
@@ -152,7 +182,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [selectedCategory, selectedLocation, startDate, endDate, currentPage, apiService]);
+	}, [selectedCategory, selectedLocation, startDate, endDate, startTime, endTime, currentPage, apiService, currentCategory]);
 
 	const handleShowReports = () => {
 		setCurrentPage(1);
@@ -169,10 +199,10 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	// Убираем автоматическую загрузку при изменении фильтров
 	useEffect(() => {
 		// Загружаем отчеты только при изменении страницы И если уже был выполнен поиск
-		if (hasSearched && selectedCategory && startDate && endDate) {
+		if (hasSearched && currentPage > 1) {
 			fetchReports();
 		}
-	}, [currentPage, fetchReports, hasSearched, selectedCategory, startDate, endDate]);
+	}, [currentPage, fetchReports, hasSearched]);
 
 	const formatDate = (dateString) => {
 		return new Date(dateString).toLocaleString('ru-RU', {
@@ -667,6 +697,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	);
 
 	// Компонент для отображения списаний
+	// Компонент для отображения списаний
 	const WriteoffReportCard = ({ report }) => {
 		return (
 			<div className="bg-white border border-red-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-200 mb-3">
@@ -732,6 +763,88 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				<div className="bg-red-50 p-2 rounded text-center">
 					<p className="text-xs text-red-700">Всего позиций списано</p>
 					<p className="font-semibold text-sm text-red-800">{report.items_count}</p>
+				</div>
+			</div>
+		);
+	};
+
+	// НОВЫЙ: Компонент для отображения объединённых списаний за период
+	const WriteoffPeriodCard = ({ reports }) => {
+		if (!reports || reports.length === 0) return null;
+
+		// Объединяем все списания из всех отчётов
+		const allWriteoffs = reports.flatMap(report =>
+			(report.writeoffs || []).map(item => ({
+				...item,
+				reportId: report.id,
+				reportDate: report.date,
+				cashier: report.cashier_name,
+				location: report.location
+			}))
+		);
+
+		const totalItems = allWriteoffs.length;
+		const totalReports = reports.length;
+
+		return (
+			<div className="bg-white border-2 border-orange-300 rounded-lg p-4 shadow-md mb-4">
+				{/* Заголовок */}
+				<div className="mb-4 pb-3 border-b-2 border-orange-200">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center space-x-3">
+							<div className="bg-orange-500 text-white p-2 rounded-lg text-lg">🗓️</div>
+							<div>
+								<h3 className="text-lg font-bold text-gray-900">Списания за период</h3>
+								<p className="text-sm text-orange-600">
+									Отчётов: {totalReports} | Позиций: {totalItems}
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{/* Список всех списаний */}
+				<div className="space-y-4">
+					{allWriteoffs.map((item, idx) => (
+						<div key={idx} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+							<div className="space-y-2">
+								{/* Дата, кассир, локация */}
+								<div>
+									<p className="text-gray-700 font-medium">
+										📅 {formatDate(item.reportDate)}
+									</p>
+									<p className="text-gray-700 mt-1">
+										👤 {item.cashier} | 📍 {item.location}
+									</p>
+								</div>
+
+								{/* Товар - вес - причина в одну строку */}
+								<div className="flex items-center gap-2 text-base">
+									<span className="font-bold text-gray-900">{item.name}</span>
+									<span className="text-gray-500">—</span>
+									<span className="font-bold text-gray-900">{item.weight} {item.unit}</span>
+									<span className="text-gray-500">—</span>
+									<span className="bg-red-100 text-red-700 px-3 py-1 rounded font-medium">
+										{item.reason}
+									</span>
+								</div>
+							</div>
+						</div>
+					))}
+				</div>
+
+				{/* Итоговая статистика */}
+				<div className="mt-4 pt-3 border-t-2 border-orange-200">
+					<div className="grid grid-cols-2 gap-3">
+						<div className="bg-orange-50 p-3 rounded-lg text-center">
+							<p className="text-xs text-orange-700">Всего отчётов</p>
+							<p className="text-xl font-bold text-orange-800">{totalReports}</p>
+						</div>
+						<div className="bg-orange-50 p-3 rounded-lg text-center">
+							<p className="text-xs text-orange-700">Всего позиций</p>
+							<p className="text-xl font-bold text-orange-800">{totalItems}</p>
+						</div>
+					</div>
 				</div>
 			</div>
 		);
@@ -818,6 +931,8 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 			case 'receiving-reports':
 				return <ReceivingReportCard key={report.id} report={report} />;
 			case 'writeoff-reports':
+				return <WriteoffReportCard key={report.id} report={report} />;
+			case 'writeoff-period-reports':
 				return <WriteoffReportCard key={report.id} report={report} />;
 			case 'transfer-reports':
 				return <TransferReportCard key={report.id} report={report} />;
@@ -982,7 +1097,12 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 						{REPORT_CATEGORIES.map((category) => (
 							<button
 								key={category.id}
-								onClick={() => setSelectedCategory(category.id)}
+								onClick={() => {
+									setSelectedCategory(category.id);
+									setHasSearched(false); // Сбрасываем флаг поиска
+									setReports([]); // Очищаем отчёты
+									setCurrentPage(1); // Сбрасываем на первую страницу
+								}}
 								className={`w-full p-3 rounded-lg border-2 transition-all duration-300 text-left ${
 									selectedCategory === category.id
 										? `${category.color} border-current shadow-md`
@@ -997,6 +1117,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 											{category.id === 'shift-reports' && 'Кассовые смены'}
 											{category.id === 'receiving-reports' && 'Поступления товара'}
 											{category.id === 'writeoff-reports' && 'Списания товара'}
+											{category.id === 'writeoff-period-reports' && 'Списания за выбранный период времени'}
 											{category.id === 'transfer-reports' && 'Перемещения товара'}
 										</p>
 									</div>
@@ -1049,6 +1170,22 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 											className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 										/>
 									</div>
+
+									{/* Время начала - показываем только для категорий с useDateTime */}
+									{currentCategory?.useDateTime && (
+										<div>
+											<label className="block text-xs text-gray-600 mb-1">
+												⏰ Время начала
+											</label>
+											<input
+												type="time"
+												value={startTime}
+												onChange={(e) => setStartTime(e.target.value)}
+												className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											/>
+										</div>
+									)}
+
 									<div>
 										<label className="block text-xs text-gray-600 mb-1">
 											Дата окончания
@@ -1060,6 +1197,21 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 											className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 										/>
 									</div>
+
+									{/* Время окончания - показываем только для категорий с useDateTime */}
+									{currentCategory?.useDateTime && (
+										<div>
+											<label className="block text-xs text-gray-600 mb-1">
+												⏰ Время окончания
+											</label>
+											<input
+												type="time"
+												value={endTime}
+												onChange={(e) => setEndTime(e.target.value)}
+												className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+											/>
+										</div>
+									)}
 								</div>
 							</div>
 
@@ -1213,10 +1365,16 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				</div>
 
 				{/* Список отчетов */}
-				<div className="space-y-3">{reports.map(renderReportCard)}</div>
+				{selectedCategory === 'writeoff-period-reports' ? (
+					// Для списаний за период показываем объединённую карточку
+					<WriteoffPeriodCard reports={reports} />
+				) : (
+					// Для остальных категорий показываем отдельные карточки
+					<div className="space-y-3">{reports.map(renderReportCard)}</div>
+				)}
 
-				{/* Пагинация */}
-				{totalPages > 1 && (
+				{/* Пагинация - скрываем для списаний за период */}
+				{totalPages > 1 && selectedCategory !== 'writeoff-period-reports' && (
 					<div className="bg-white rounded-lg shadow-md p-4 mt-4">
 						<div className="flex justify-center items-center space-x-2">
 							<button
@@ -1306,6 +1464,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					deleteMethod = apiService.deleteReceivingReport;
 					break;
 				case 'writeoff-reports':
+				case 'writeoff-period-reports':
 				case 'transfer-reports':
 					deleteMethod = apiService.deleteWriteoffTransferReport;
 					break;

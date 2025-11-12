@@ -53,13 +53,17 @@ class WriteoffTransferCRUD:
                 # Если дата/время не указаны, используем текущее время МСК
                 report_datetime = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow"))
             else:
-                # Создаём datetime из даты и времени и добавляем московскую timezone
-                naive_datetime = datetime.combine(
-                    report_data.report_date,
-                    report_data.report_time
+                # ИСПРАВЛЕНО: Создаём datetime напрямую с МСК timezone
+                report_datetime = datetime(
+                    year=report_data.report_date.year,
+                    month=report_data.report_date.month,
+                    day=report_data.report_date.day,
+                    hour=report_data.report_time.hour,
+                    minute=report_data.report_time.minute,
+                    second=0,
+                    microsecond=0,
+                    tzinfo=ZoneInfo("Europe/Moscow")
                 )
-                # Добавляем timezone МСК
-                report_datetime = naive_datetime.replace(tzinfo=ZoneInfo("Europe/Moscow"))
 
             # Создаем запись в БД
             db_report = WriteoffTransfer(
@@ -114,19 +118,29 @@ class WriteoffTransferCRUD:
                         return
 
                     # Подготавливаем данные для отправки
+                    # ИСПРАВЛЕНО: Конвертируем datetime в МСК перед извлечением компонентов
+                    msk_datetime = None
+                    if db_report.date:
+                        # Если datetime уже имеет timezone, конвертируем в МСК
+                        if db_report.date.tzinfo is not None:
+                            msk_datetime = db_report.date.astimezone(ZoneInfo("Europe/Moscow"))
+                        else:
+                            # Если timezone нет, добавляем МСК
+                            msk_datetime = db_report.date.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+
                     report_dict = {
                         'location': db_report.location,
-                        'location_to': db_report.location_to,  # Добавляем недостающее поле
+                        'location_to': db_report.location_to,
                         'created_date': db_report.created_date,
                         'cashier_name': db_report.cashier_name,
                         'shift_type': db_report.shift_type,
                         'writeoffs': db_report.writeoffs,
                         'transfers': db_report.transfers,
                         "writeoff_or_transfer": writeoff_or_transfer,
-                        "date": db_report.date,
-                        # Добавляем отдельные поля для даты и времени отчета
-                        "report_date": db_report.date.date() if db_report.date else None,
-                        "report_time": db_report.date.time() if db_report.date else None,
+                        "date": msk_datetime,
+                        # Извлекаем компоненты из МСК datetime
+                        "report_date": msk_datetime.date() if msk_datetime else None,
+                        "report_time": msk_datetime.time() if msk_datetime else None,
                     }
 
                     # Отправляем в Telegram (с таймаутом)

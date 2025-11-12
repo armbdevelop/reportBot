@@ -157,7 +157,13 @@ export const apiService = {
         }
       });
 
-      const url = `${API_BASE_URL}/${reportType}/list?${queryParams}`;
+      // Если reportType уже содержит конкретный endpoint (например, 'writeoff-transfer/period'),
+      // не добавляем '/list', иначе добавляем
+      const hasCustomEndpoint = reportType.includes('/');
+      const url = hasCustomEndpoint
+        ? `${API_BASE_URL}/${reportType}?${queryParams}`
+        : `${API_BASE_URL}/${reportType}/list?${queryParams}`;
+
       console.log('📡 Request URL:', url);
 
       const response = await fetch(url);

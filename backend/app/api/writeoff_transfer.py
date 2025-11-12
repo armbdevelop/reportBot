@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, status, Form, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, or_, desc, select, func
@@ -373,6 +374,129 @@ async def get_writeoff_transfer_reports_list(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка получения списка отчетов"
+        )
+
+
+@router.get(
+    "/period",
+    summary="Получить списания за период с учётом времени",
+    description="Возвращает список списаний за указанный период времени (с учётом часов и минут)"
+)
+async def get_writeoffs_by_period(
+    page: int = Query(1, ge=1, description="Номер страницы"),
+    per_page: int = Query(50, ge=1, le=100, description="Количество элементов на странице"),
+    start_datetime: Optional[str] = Query(None, description="Дата и время начала периода (ISO формат: YYYY-MM-DDTHH:MM)"),
+    end_datetime: Optional[str] = Query(None, description="Дата и время окончания периода (ISO формат: YYYY-MM-DDTHH:MM)"),
+    location: Optional[str] = Query(None, description="Фильтр по локации (код или полный адрес)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Получает список списаний за указанный период времени с учётом часов и минут.
+    Показывает только списания (type=writeoff), исключая перемещения.
+    """
+    try:
+        conditions = []
+
+        # ОБЯЗАТЕЛЬНО: только списания (не перемещения)
+        conditions.append(WriteoffTransfer.writeoffs.isnot(None))
+        conditions.append(WriteoffTransfer.location_to.is_(None))
+
+        # Фильтрация по времени (используем поле date - дата отчёта, указанная пользователем)
+        if start_datetime:
+            try:
+                # Парсим ISO формат и добавляем МСК timezone
+                start_dt = datetime.fromisoformat(start_datetime.replace('Z', '+00:00'))
+                # Если нет timezone, добавляем МСК
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+                conditions.append(WriteoffTransfer.date >= start_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Некорректный формат start_datetime. Используйте ISO формат: YYYY-MM-DDTHH:MM"
+                )
+
+        if end_datetime:
+            try:
+                # Парсим ISO формат и добавляем МСК timezone
+                end_dt = datetime.fromisoformat(end_datetime.replace('Z', '+00:00'))
+                # Если нет timezone, добавляем МСК
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+                conditions.append(WriteoffTransfer.date <= end_dt)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Некорректный формат end_datetime. Используйте ISO формат: YYYY-MM-DDTHH:MM"
+                )
+
+        # Фильтр по локации
+        if location:
+            norm = normalize_location(location)
+            if norm:
+                conditions.append(WriteoffTransfer.location == norm)
+
+        # Подсчет общего количества записей
+        count_stmt = select(func.count(WriteoffTransfer.id))
+        if conditions:
+            count_stmt = count_stmt.where(and_(*conditions))
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
+        # Пагинация
+        offset = (page - 1) * per_page
+
+        # Основной запрос - сортируем по дате отчёта (указанной пользователем)
+        stmt = select(WriteoffTransfer)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        stmt = stmt.order_by(desc(WriteoffTransfer.date)).offset(offset).limit(per_page)
+
+        result = await db.execute(stmt)
+        reports = result.scalars().all()
+
+        # Формируем ответ
+        reports_list = []
+        for report in reports:
+            writeoffs_items = report.writeoffs if report.writeoffs else []
+
+            report_data = {
+                "id": report.id,
+                "location": report.location,
+                "cashier_name": report.cashier_name,
+                "shift_type": report.shift_type,
+                "type": "writeoff",
+                "date": report.date.isoformat() if report.date else None,
+                "created_at": report.created_date.isoformat() if report.created_date else None,
+                "writeoffs": writeoffs_items,
+                "items_count": len(writeoffs_items)
+            }
+
+            # Добавляем location_to если есть (для совместимости)
+            if report.location_to:
+                report_data["location_to"] = report.location_to
+
+            reports_list.append(report_data)
+
+        return {
+            "reports": reports_list,
+            "total": total_count,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total_count + per_page - 1) // per_page,
+            "period": {
+                "start": start_datetime,
+                "end": end_datetime
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка получения списаний за период: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка получения списаний за период"
         )
 
 
