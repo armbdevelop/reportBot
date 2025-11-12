@@ -25,7 +25,9 @@ export const CashierReportForm = ({
   const [formData, setFormData] = useState({
     location: '',
     shift: '',
-    date: getCurrentMSKTime(),
+    date: getCurrentMSKTime(), // Формат для отображения (старое поле, оставляем для совместимости)
+    reportDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD формат
+    reportTime: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), // HH:MM формат
     cashierName: '',
     incomes: Array(2).fill({ amount: '', comment: '' }),
     expenses: Array(5).fill({ name: '', amount: '' }),
@@ -41,13 +43,17 @@ export const CashierReportForm = ({
     },
     factCash: '',
     photo: null,
+    receiptPhoto: null, // НОВОЕ: фото чека с магазина
     comments: '' // НОВОЕ: поле для комментариев
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
   const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
+  const [showDeleteReceiptPhotoModal, setShowDeleteReceiptPhotoModal] = useState(false); // НОВОЕ: модальное окно для удаления фото чека
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
   const photoInputRef = useRef(null);
+  const receiptPhotoInputRef = useRef(null); // НОВОЕ: ref для поля загрузки фото чека
+
 
   // Загружаем черновик при инициализации
   useEffect(() => {
@@ -65,7 +71,7 @@ export const CashierReportForm = ({
         data.incomes.some(i => i.amount || i.comment) ||
         data.expenses.some(e => e.name || e.amount) ||
         Object.values(data.iikoData).some(v => v) ||
-        data.factCash || data.photo || data.comments) {
+        data.factCash || data.photo || data.receiptPhoto || data.comments) {
       await saveDraft('cashier', data);
     }
   }, [saveDraft]);
@@ -153,6 +159,15 @@ export const CashierReportForm = ({
     setShowDeletePhotoModal(false);
   }, []);
 
+  // НОВОЕ: Функция удаления фото чека с подтверждением
+  const handleDeleteReceiptPhoto = useCallback(() => {
+    setFormData(prev => ({ ...prev, receiptPhoto: null }));
+    if (receiptPhotoInputRef.current) {
+      receiptPhotoInputRef.current.value = '';
+    }
+    setShowDeleteReceiptPhotoModal(false);
+  }, []);
+
   // ИСПРАВЛЕНА ФОРМУЛА СОГЛАСНО ТЗ (ДОБАВЛЕНЫ НОВЫЕ ПОЛЯ)
   const calculateTotals = useMemo(() => {
     const totalIncome = formData.incomes.reduce((sum, item) =>
@@ -188,6 +203,8 @@ export const CashierReportForm = ({
 
     if (!formData.location) errors.location = 'Выберите локацию';
     if (!formData.shift) errors.shift = 'Выберите смену';
+    if (!formData.reportDate) errors.reportDate = 'Выберите дату отчета';
+    if (!formData.reportTime) errors.reportTime = 'Выберите время отчета';
     if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира';
     if (!formData.photo) errors.photo = 'Добавьте фотографию кассового отчёта';
     if (!formData.iikoData.totalRevenue || parseFloat(formData.iikoData.totalRevenue) <= 0) {
@@ -233,6 +250,13 @@ export const CashierReportForm = ({
       // Основные поля
       apiFormData.append('location', formData.location);
       apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
+
+      // Объединяем дату и время и отправляем как shift_date
+      if (formData.reportDate && formData.reportTime) {
+        const shiftDateTime = `${formData.reportDate}T${formData.reportTime}`;
+        apiFormData.append('shift_date', shiftDateTime);
+      }
+
       apiFormData.append('cashier_name', formData.cashierName);
 
       // Финансовые данные (ОБНОВЛЕНО: добавлены новые поля)
@@ -268,6 +292,11 @@ export const CashierReportForm = ({
 
       // Фото
       apiFormData.append('photo', formData.photo);
+
+      // НОВОЕ: Фото чека с магазина (необязательное)
+      if (formData.receiptPhoto) {
+        apiFormData.append('receipt_photo', formData.receiptPhoto);
+      }
 
       // Комментарии
       if (formData.comments && formData.comments.trim()) {
@@ -357,15 +386,56 @@ export const CashierReportForm = ({
             </div>
           </div>
 
-          {/* Date & Cashier */}
-          <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
-            <input
-              type="text"
-              value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-            />
+          {/* Date & Time - два отдельных поля */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Дата */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Дата отчета *
+              </label>
+              <input
+                type="date"
+                value={formData.reportDate}
+                onChange={(e) => handleInputChange('reportDate', e.target.value)}
+                disabled={isLoading}
+                min={new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
+                max={new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
+                className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
+                  validationErrors.reportDate 
+                    ? 'border-red-400 bg-red-50 text-red-700' 
+                    : 'bg-white border-gray-300 focus:border-green-500 focus:outline-none text-gray-700'
+                }`}
+                name="report-date"
+                id="report-date"
+              />
+              {validationErrors.reportDate && (
+                <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.reportDate}</p>
+              )}
+            </div>
+
+            {/* Время */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ⏰ Время отчета *
+              </label>
+              <input
+                type="time"
+                value={formData.reportTime}
+                onChange={(e) => handleInputChange('reportTime', e.target.value)}
+                disabled={isLoading}
+                step="60"
+                className={`w-full p-3 border rounded-lg transition-colors disabled:opacity-50 ${
+                  validationErrors.reportTime 
+                    ? 'border-red-400 bg-red-50 text-red-700' 
+                    : 'bg-white border-gray-300 focus:border-green-500 focus:outline-none text-gray-700'
+                }`}
+                name="report-time"
+                id="report-time"
+              />
+              {validationErrors.reportTime && (
+                <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.reportTime}</p>
+              )}
+            </div>
           </div>
 
           <div className="mb-6">
@@ -449,6 +519,19 @@ export const CashierReportForm = ({
               </ul>
             </div>
 
+            {/* Третий блок - Информация о чеках (голубой цвет) */}
+            <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+              <h4 className="text-base font-bold text-blue-800 mb-2 flex items-center gap-2">
+                <span className="text-lg">ℹ️</span> Инфо
+              </h4>
+              <p className="text-sm text-blue-700 leading-relaxed">
+                Старайтесь покупать в магазинах где дают чек, нам важна такая информация как <strong>наименование</strong>, <strong>количество/вес</strong> и <strong>цена</strong>.
+              </p>
+              <p className="text-sm text-blue-700 leading-relaxed mt-2">
+                Если чек все же не выдали, напишите от руки: наименование — количество/вес и цену и сделайте фотографию такого &quot;чека&quot; который оплатили.
+              </p>
+            </div>
+
             <h3 className="text-lg font-semibold text-red-600 mb-3">💸 Расходы</h3>
             <p className="text-sm text-gray-600 mb-3">сумма — подробный комментарий</p>
             {formData.expenses.map((expense, index) => (
@@ -487,6 +570,80 @@ export const CashierReportForm = ({
             </button>
             <div className="text-right text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
               Итого расходы: {calculateTotals.totalExpenses.toLocaleString()} ₽
+            </div>
+
+            {/* НОВОЕ: Фото чека с магазина */}
+            <div className="mt-4">
+              <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
+                <Camera size={16} className="text-blue-500" />
+                Фото чека с магазина (необязательно)
+              </label>
+
+              {/* Скрытый input для фото чека */}
+              <input
+                ref={receiptPhotoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => {
+                  // Сохраняем текущую позицию скролла перед обновлением состояния
+                  const scrollPosition = window.scrollY;
+                  setFormData(prev => ({ ...prev, receiptPhoto: e.target.files[0] }));
+                  // Восстанавливаем позицию скролла после рендера
+                  requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollPosition);
+                  });
+                }}
+                disabled={isLoading}
+                className="hidden"
+                name="receiptPhoto"
+                id="receiptPhoto"
+              />
+
+              {/* Кнопка загрузки фото чека */}
+              <button
+                type="button"
+                onClick={() => receiptPhotoInputRef.current?.click()}
+                disabled={isLoading}
+                className="w-full photo-upload-button border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400"
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <Camera size={24} className="text-blue-600" />
+                  <div className="text-center">
+                    <div className="font-semibold text-blue-700 text-lg">+ Добавить фото чека с магазина</div>
+                    <div className="text-xs text-blue-600 mt-1">Необязательное поле</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Показываем выбранный файл чека */}
+              {formData.receiptPhoto && (
+                <div className="photo-selected bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle size={20} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-green-700 mb-1">
+                        ✅ Фото чека успешно выбрано
+                      </p>
+                      <p className="text-sm text-green-600 truncate mb-2">
+                        📄 {formData.receiptPhoto.name}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-green-600">
+                        <span>📏 {(formData.receiptPhoto.size / 1024 / 1024).toFixed(2)} МБ</span>
+                        <span>🖼️ {formData.receiptPhoto.type}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteReceiptPhotoModal(true)}
+                      className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                      disabled={isLoading}
+                    >
+                      <XCircle size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -650,7 +807,7 @@ export const CashierReportForm = ({
                     <span className="font-semibold">{calculateTotals.totalAcquiring.toLocaleString()} ₽</span>
                   </div>
                   <div className="text-xs text-purple-600">
-                    (авто подсчёт всех пунктов которые отмечены "*")
+                    (авто подсчёт всех пунктов которые отмечены &quot;*&quot;)
                   </div>
                 </div>
               </div>
@@ -671,6 +828,8 @@ export const CashierReportForm = ({
               accept="image/*"
               capture="environment"
               onChange={(e) => {
+                // Сохраняем текущую позицию скролла перед обновлением состояния
+                const scrollPosition = window.scrollY;
                 setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
                 if (validationErrors.photo) {
                   setValidationErrors(prev => {
@@ -679,6 +838,10 @@ export const CashierReportForm = ({
                     return newErrors;
                   });
                 }
+                // Восстанавливаем позицию скролла после рендера
+                requestAnimationFrame(() => {
+                  window.scrollTo(0, scrollPosition);
+                });
               }}
               disabled={isLoading}
               className="hidden"
@@ -845,6 +1008,18 @@ export const CashierReportForm = ({
         onConfirm={handleDeletePhoto}
         title="Удалить фотографию"
         message="Вы уверены, что хотите удалить выбранную фотографию? Это действие нельзя отменить."
+        confirmText="Удалить"
+        cancelText="Отмена"
+        type="danger"
+      />
+
+      {/* НОВОЕ: Модальное окно подтверждения удаления фото чека */}
+      <ConfirmationModal
+        isOpen={showDeleteReceiptPhotoModal}
+        onClose={() => setShowDeleteReceiptPhotoModal(false)}
+        onConfirm={handleDeleteReceiptPhoto}
+        title="Удалить фото чека"
+        message="Вы уверены, что хотите удалить фото чека с магазина? Это действие нельзя отменить."
         confirmText="Удалить"
         cancelText="Отмена"
         type="danger"

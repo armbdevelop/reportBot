@@ -299,7 +299,7 @@ class TelegramService:
 
     # ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ ОТПРАВКИ ОТЧЕТОВ
 
-    async def send_shift_report(self, report_data: Dict[str, Any], photo_path: str) -> bool:
+    async def send_shift_report(self, report_data: Dict[str, Any], photo_path: str, receipt_photo_path: Optional[str] = None) -> bool:
         """Отправляет отчет смены в Telegram"""
         if not self.enabled:
             print("🔕 Telegram отправка отключена (не настроен токен или chat_id)")
@@ -311,8 +311,13 @@ class TelegramService:
             # Форматируем сообщение
             message = self._format_shift_report_message(report_data)
 
-            # Отправляем фото с подписью
-            success = await self._send_photo_with_caption(message, photo_path, topic_id)
+            # ОБНОВЛЕНО: Если есть фото чека, отправляем как медиа-группу
+            if receipt_photo_path and Path(receipt_photo_path).exists():
+                # Отправляем оба фото как медиа-группу
+                success = await self._send_shift_report_media_group(message, photo_path, receipt_photo_path, topic_id)
+            else:
+                # Отправляем только основное фото с подписью
+                success = await self._send_photo_with_caption(message, photo_path, topic_id)
 
             if success:
                 print(f"✅ Отчет смены отправлен в Telegram для локации: {report_data.get('location')}")
@@ -462,12 +467,41 @@ class TelegramService:
         """Форматирует сообщение отчета смены"""
         shift_emoji = "🌅" if data.get('shift_type') == 'morning' else "🌙"
 
+        # Получаем дату отчета из данных или используем текущую
+        user_date = data.get('date')
+        if user_date:
+            # Если date - это datetime объект
+            if hasattr(user_date, 'strftime'):
+                # ИСПРАВЛЕНО: Дата уже в МСК timezone из БД, просто форматируем без конверсии
+                # Если есть timezone info, используем astimezone для корректного отображения
+                if user_date.tzinfo is not None:
+                    # Конвертируем в МСК если это не МСК
+                    msk_date = user_date.astimezone(ZoneInfo("Europe/Moscow"))
+                    formatted_date = msk_date.strftime('%d.%m.%Y %H:%M')
+                else:
+                    # Если timezone нет, просто форматируем
+                    formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
+            # Если date - это строка
+            elif isinstance(user_date, str):
+                try:
+                    # Пытаемся парсить ISO формат
+                    parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
+                    msk_date = parsed_date.astimezone(ZoneInfo("Europe/Moscow"))
+                    formatted_date = msk_date.strftime('%d.%m.%Y %H:%M')
+                except:
+                    formatted_date = user_date
+            else:
+                formatted_date = str(user_date)
+        else:
+            # Fallback: используем текущую дату по МСК
+            formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')
+
         message = f""" <b>ОТЧЁТ ЗАВЕРШЕНИЯ СМЕНЫ</b> {shift_emoji}
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
-🕐 <b>Дата/время:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Дата/время:</b> {formatted_date}
 
 📊 <b>Информация из iiko:</b>
 - Общая выручка: <b>{int(data.get('total_revenue', 0))}₽</b>
@@ -819,6 +853,68 @@ class TelegramService:
             return False
         except Exception as e:
             print(f"Неожиданная ошибка при отправке фото в Telegram: {str(e)}")
+            return False
+
+    async def _send_shift_report_media_group(self, caption: str, photo_path: str, receipt_photo_path: str, topic_id: Optional[int] = None) -> bool:
+        """Отправляет два фото отчёта смены (основное фото + фото чека) как медиа-группу"""
+        try:
+            url = f"{self.base_url}/sendMediaGroup"
+
+            # Создаем FormData для multipart/form-data
+            data = aiohttp.FormData()
+            data.add_field('chat_id', str(self.chat_id))
+
+            if topic_id:
+                data.add_field('message_thread_id', str(topic_id))
+
+            # Проверяем существование файлов
+            if not Path(photo_path).exists():
+                print(f"Файл основной фотографии не найден: {photo_path}")
+                return False
+            if not Path(receipt_photo_path).exists():
+                print(f"Файл фото чека не найден: {receipt_photo_path}")
+                return False
+
+            # Открываем оба файла
+            with open(photo_path, 'rb') as photo_file, open(receipt_photo_path, 'rb') as receipt_file:
+                # Добавляем файлы
+                data.add_field('photo1', photo_file, filename='report.jpg', content_type='image/jpeg')
+                data.add_field('photo2', receipt_file, filename='receipt.jpg', content_type='image/jpeg')
+
+                # Создаем медиа массив
+                media = [
+                    {
+                        "type": "photo",
+                        "media": "attach://photo1",
+                        "caption": caption,
+                        "parse_mode": "HTML"
+                    },
+                    {
+                        "type": "photo",
+                        "media": "attach://photo2"
+                    }
+                ]
+
+                # Добавляем медиа массив как JSON
+                data.add_field('media', json.dumps(media))
+
+                timeout = aiohttp.ClientTimeout(total=60, connect=15)
+
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(url, data=data) as response:
+                        if response.status != 200:
+                            response_text = await response.text()
+                            print(f"Telegram API ошибка (медиа группа отчёта смены): {response.status} - {response_text}")
+                        return response.status == 200
+
+        except (aiohttp.ClientError, socket.gaierror, OSError) as e:
+            print(f"Ошибка сети при отправке медиа группы отчёта смены в Telegram: {str(e)}")
+            return False
+        except FileNotFoundError as e:
+            print(f"Файл фотографии не найден: {str(e)}")
+            return False
+        except Exception as e:
+            print(f"Неожиданная ошибка при отправке медиа группы отчёта смены в Telegram: {str(e)}")
             return False
 
     async def _send_photo_with_caption_from_bytes(self, caption: str, photo_bytes: bytes, filename: str,

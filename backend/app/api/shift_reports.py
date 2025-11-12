@@ -69,6 +69,7 @@ async def create_shift_report(
         # Основные поля
         location: str = Form(..., description="Название локации", example="Кафе Центральный"),
         shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
+        shift_date: Optional[str] = Form(None, description="Дата и время смены в формате ISO (YYYY-MM-DDTHH:MM:SS)", example="2025-11-12T20:43:00"),
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
 
         # Финансовые данные
@@ -100,6 +101,9 @@ async def create_shift_report(
         # Фото
         photo: UploadFile = File(..., description="Фото кассового отчета"),
 
+        # НОВОЕ: Фото чека с магазина (НЕОБЯЗАТЕЛЬНО)
+        receipt_photo: Optional[UploadFile] = File(None, description="Фото чека с магазина (необязательно)"),
+
         comments: Optional[str] = Form(default=None, description="Комментарии"),
 
         db: AsyncSession = Depends(get_db)
@@ -119,10 +123,30 @@ async def create_shift_report(
         income_entries = _parse_income_entries(income_entries_json)
         expense_entries = _parse_expense_entries(expense_entries_json)
 
+        # Парсим дату смены, если передана
+        parsed_shift_date = None
+        if shift_date:
+            try:
+                # Пытаемся распарсить дату в различных форматах
+                for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M"]:
+                    try:
+                        parsed_shift_date = datetime.strptime(shift_date, fmt)
+                        break
+                    except ValueError:
+                        continue
+
+                if not parsed_shift_date:
+                    # Если не удалось распарсить, пробуем ISO формат
+                    parsed_shift_date = datetime.fromisoformat(shift_date.replace('Z', '+00:00'))
+            except Exception as e:
+                print(f"⚠️ Ошибка парсинга даты смены: {shift_date}, ошибка: {e}")
+                # Если не удалось распарсить, используем None (будет установлена текущая дата)
+
         # Создаем объект данных
         report_data = ShiftReportCreate(
             location=location,
             shift_type=shift_type,
+            shift_date=parsed_shift_date,
             cashier_name=cashier_name,
             income_entries=income_entries,
             expense_entries=expense_entries,
@@ -139,7 +163,7 @@ async def create_shift_report(
         )
 
         # Создаем отчет в базе данных
-        report = await shift_report_crud.create_shift_report(db, report_data, photo)
+        report = await shift_report_crud.create_shift_report(db, report_data, photo, receipt_photo)
 
         return report
 
@@ -309,7 +333,8 @@ async def get_shift_reports_list(
         stmt = select(ShiftReport)
         if conditions:
             stmt = stmt.where(and_(*conditions))
-        stmt = stmt.order_by(desc(ShiftReport.created_at)).offset(offset).limit(per_page)
+        # Сортируем по дате смены (указанной кассиром), а не по времени создания записи
+        stmt = stmt.order_by(desc(ShiftReport.date)).offset(offset).limit(per_page)
 
         result = await db.execute(stmt)
         reports = result.scalars().all()
@@ -342,6 +367,7 @@ async def get_shift_reports_list(
                 "comments": report.comments,
                 "created_at": report.created_at.isoformat() if report.created_at else None,
                 "photo_url": get_photo_url(report.photo_path),
+                "receipt_photo_url": get_photo_url(report.receipt_photo_path) if report.receipt_photo_path else None,
             })
 
         return {
@@ -405,59 +431,17 @@ async def get_shift_report(
             "expense_entries": report.expense_entries if report.expense_entries else [],
             "comments": report.comments,
             "photo_url": get_photo_url(report.photo_path),
+            "receipt_photo_url": get_photo_url(report.receipt_photo_path) if report.receipt_photo_path else None,
             "created_at": report.created_at.isoformat() if report.created_at else None,
             "updated_at": report.updated_at.isoformat() if report.updated_at else None
         }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Ошибка получения отчета смены: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка получения отчета"
-        )
-
-
-@router.delete("/shift-reports/{report_id}")
-async def delete_shift_report(
-    report_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """Удаление кассового отчета"""
-    try:
-        # Получаем отчет для проверки существования
-        report = await shift_report_crud.get(db, id=report_id)
-        if not report:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Отчет не найден"
-            )
-        
-        # Удаляем фото если есть
-        if report.photo_path:
-            import os
-            try:
-                # Формируем полный путь к файлу
-                if report.photo_path.startswith('/uploads/'):
-                    file_path = f"/app{report.photo_path}"
-                elif report.photo_path.startswith('uploads/'):
-                    file_path = f"/app/{report.photo_path}"
-                else:
-                    file_path = f"/app/uploads/shift_reports/{report.photo_path}"
-                
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    print(f"✅ Удален файл фото: {file_path}")
-            except Exception as e:
-                print(f"⚠️ Не удалось удалить файл фото: {e}")
-        
         # Удаляем отчет из БД
         await shift_report_crud.remove(db, id=report_id)
         await db.commit()
-        
+
         return {"message": "Отчет успешно удален", "deleted_id": report_id}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -467,3 +451,4 @@ async def delete_shift_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при удалении отчета"
         )
+

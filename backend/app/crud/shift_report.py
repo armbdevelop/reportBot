@@ -26,14 +26,15 @@ class ShiftReportCRUD:
             self,
             db: AsyncSession,
             report_data: ShiftReportCreate,
-            photo: UploadFile
+            photo: UploadFile,
+            receipt_photo: Optional[UploadFile] = None
     ) -> ShiftReport:
         """
         Создает новый отчет завершения смены с расчетами.
         Telegram отправка происходит асинхронно и не влияет на создание записи.
         """
         # Создаем отчет в базе данных
-        db_report = await self._create_report_in_db_safe(db, report_data, photo)
+        db_report = await self._create_report_in_db_safe(db, report_data, photo, receipt_photo)
 
         # Запускаем отправку в Telegram в фоне (не ждем результата)
         if self.telegram_service and db_report:
@@ -45,7 +46,8 @@ class ShiftReportCRUD:
             self,
             db: AsyncSession,
             report_data: ShiftReportCreate,
-            photo: UploadFile
+            photo: UploadFile,
+            receipt_photo: Optional[UploadFile] = None
     ) -> ShiftReport:
         """
         Безопасно создает отчет в базе данных с правильной обработкой транзакций.
@@ -54,11 +56,21 @@ class ShiftReportCRUD:
 
         try:
 
-            # Конвертация в московское время (Europe/Moscow)
-            date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow"))
+            # Используем переданную дату смены или текущее время по МСК
+            if report_data.shift_date:
+                # Если дата передана, используем её и добавляем timezone МСК
+                date = report_data.shift_date.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+            else:
+                # Иначе используем текущее время по МСК
+                date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow"))
 
             # Сохраняем фото
             photo_path = self.file_service.save_shift_report_photo(photo)
+
+            # НОВОЕ: Сохраняем фото чека, если оно предоставлено
+            receipt_photo_path = None
+            if receipt_photo:
+                receipt_photo_path = self.file_service.save_shift_report_photo(receipt_photo)
 
             # Рассчитываем сверку (ОБНОВЛЕНО: добавлены новые поля)
             calculations = self.calculator.calculate_shift_report(
@@ -113,6 +125,7 @@ class ShiftReportCRUD:
                 calculated_amount=calculations["calculated_amount"],
                 surplus_shortage=calculations["surplus_shortage"],
                 photo_path=photo_path,
+                receipt_photo_path=receipt_photo_path,  # НОВОЕ ПОЛЕ
                 comments=report_data.comments,
                 status="draft"
             )
@@ -181,7 +194,11 @@ class ShiftReportCRUD:
 
                     # Отправляем в Telegram (с таймаутом)
                     telegram_success = await asyncio.wait_for(
-                        self.telegram_service.send_shift_report(report_dict, db_report.photo_path),
+                        self.telegram_service.send_shift_report(
+                            report_dict,
+                            db_report.photo_path,
+                            db_report.receipt_photo_path  # НОВОЕ: передаем фото чека
+                        ),
                         timeout=30  # 30 секунд таймаут
                     )
 
@@ -260,7 +277,7 @@ class ShiftReportCRUD:
             stmt = select(ShiftReport).where(ShiftReport.id == id)
             result = await db.execute(stmt)
             report = result.scalar_one_or_none()
-            
+
             if report:
                 await db.delete(report)
                 return True
@@ -268,3 +285,4 @@ class ShiftReportCRUD:
         except Exception as e:
             print(f"❌ Ошибка удаления отчета {id}: {str(e)}")
             return False
+

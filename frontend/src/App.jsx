@@ -103,6 +103,18 @@ function App() {
         }
       }
 
+      // НОВОЕ: Обрабатываем фото чека с магазина (для отчета смены)
+      if (dataToSave.receiptPhoto && dataToSave.receiptPhoto instanceof File) {
+        try {
+          dataToSave.receiptPhotoBase64 = await fileToBase64(dataToSave.receiptPhoto);
+          dataToSave.receiptPhotoName = dataToSave.receiptPhoto.name;
+          delete dataToSave.receiptPhoto;
+        } catch (error) {
+          console.warn('Не удалось сохранить фото чека в черновик:', error);
+          delete dataToSave.receiptPhoto;
+        }
+      }
+
       // Обрабатываем массив фотографий (для отчета приема товаров)
       if (dataToSave.photos && Array.isArray(dataToSave.photos) && dataToSave.photos.length > 0) {
         try {
@@ -215,6 +227,17 @@ function App() {
             delete draftData.photoName;
           } catch (error) {
             console.warn('Не удалось восстановить фото из черновика:', error);
+          }
+        }
+
+        // НОВОЕ: Восстанавливаем фото чека из base64 (для отчета смены)
+        if (draftData.receiptPhotoBase64 && draftData.receiptPhotoName) {
+          try {
+            draftData.receiptPhoto = base64ToFile(draftData.receiptPhotoBase64, draftData.receiptPhotoName);
+            delete draftData.receiptPhotoBase64;
+            delete draftData.receiptPhotoName;
+          } catch (error) {
+            console.warn('Не удалось восстановить фото чека из черновика:', error);
           }
         }
 

@@ -186,7 +186,7 @@ app.add_middleware(
 )
 
 # Подключаем API роуты с префиксом /api
-app.include_router(api_router, prefix="/api")
+app.include_router(api_router)
 
 # Подключаем загрузки
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

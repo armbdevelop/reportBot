@@ -107,7 +107,7 @@ async def create_report_on_goods(
             default=None,
             description="""JSON массив товаров для бара.
 
-Каждый элемен�� должен содержать:
+Каждый элемент должен содержать:
 - name: название товара (строка)
 - count: количество (положительное число)
 - unit: единица измерения (строка)
@@ -164,7 +164,7 @@ async def create_report_on_goods(
     - Моющие средства
 
     ## Формат JSON
-    Все категории принимают массив объектов с поля��и:
+    Все категории принимают массив объектов с полями:
     - `name`: название товара (обязательно)
     - `count`: количество штук (обязательно, > 0)
     - `unit`: единица измерения (обязательно)
@@ -329,7 +329,7 @@ async def create_report_on_goods(
     status_code=status.HTTP_201_CREATED,
     description="ОТПРАВКА НЕ ДОСТАЮЩИХ ФОТО В ОТЧЕТ ПРИЕМА ТОВАРА",
     responses={201: {"Успешно отправлено": "статус - 201"},
-               401: {"Плохой запро��": "статус 400 что то пошло не так"}}
+               401: {"Плохой запрос": "статус 400 что то пошло не так"}}
 
 )
 async def send_photo(
@@ -359,7 +359,7 @@ async def send_photo(
             if len(content) > 20 * 1024 * 1024:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Файл {photo.filename} слишком большой (ма��симум 20MB)"
+                    detail=f"Файл {photo.filename} слишком большой (максимум 20MB)"
                 )
 
             photos_data.append({

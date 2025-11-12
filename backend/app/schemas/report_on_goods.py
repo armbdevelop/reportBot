@@ -60,11 +60,6 @@ class ReportOnGoodsCreate(BaseModel):
     shift_type: str = Field(description="Тип смены")
     cashier_name: str = Field(description="ФИО кассира")
 
-    kuxnya: List[KuxnyaJson] = Field(
-        default_factory=list,
-        description="Список товаров для кухни"
-    )
-
     bar: List[BarJson] = Field(
         default_factory=list,
         description="Список товаров для бара"

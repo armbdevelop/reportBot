@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
@@ -49,12 +50,16 @@ class WriteoffTransferCRUD:
                 })
 
             if report_data.report_date is None or report_data.report_time is None:
-                report_datetime = None
+                # Если дата/время не указаны, используем текущее время МСК
+                report_datetime = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow"))
             else:
-                report_datetime = datetime.combine(
+                # Создаём datetime из даты и времени и добавляем московскую timezone
+                naive_datetime = datetime.combine(
                     report_data.report_date,
                     report_data.report_time
                 )
+                # Добавляем timezone МСК
+                report_datetime = naive_datetime.replace(tzinfo=ZoneInfo("Europe/Moscow"))
 
             # Создаем запись в БД
             db_report = WriteoffTransfer(
@@ -159,7 +164,7 @@ class WriteoffTransferCRUD:
             stmt = select(WriteoffTransfer).where(WriteoffTransfer.id == id)
             result = await db.execute(stmt)
             report = result.scalar_one_or_none()
-            
+
             if report:
                 await db.delete(report)
                 return True

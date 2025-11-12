@@ -39,6 +39,9 @@ class ShiftReport(Base):
     # Фото кассового отчета (ОБЯЗАТЕЛЬНО!)
     photo_path = Column(Text, nullable=False)
 
+    # НОВОЕ: Фото чека с магазина (НЕОБЯЗАТЕЛЬНО!)
+    receipt_photo_path = Column(Text, nullable=True)
+
     # Метаданные
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(20), nullable=False, default="draft")  # "draft", "sent"

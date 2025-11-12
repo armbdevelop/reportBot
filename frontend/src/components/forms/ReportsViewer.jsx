@@ -238,7 +238,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					</div>
 					<div className="flex items-center space-x-2">
 						<div className="text-sm font-semibold text-gray-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
-							{formatDate(report.created_at)}
+							{formatDate(report.date || report.created_at)}
 						</div>
 						<button
 							onClick={() => openDeleteModal(report.id, selectedCategory)}
@@ -265,11 +265,17 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				</div>
 
 				{/* Ключевые суммы в компактной сетке */}
-				<div className="grid grid-cols-2 gap-2 mb-3">
+				<div className="grid grid-cols-3 gap-2 mb-3">
 					<div className="bg-blue-50 p-2 rounded">
 						<p className="text-xs text-blue-700">Выручка</p>
 						<p className="font-semibold text-sm text-blue-800">
 							{formatAmount(report.total_revenue || 0)}
+						</p>
+					</div>
+					<div className="bg-orange-50 p-2 rounded">
+						<p className="text-xs text-orange-700">Возвраты</p>
+						<p className="font-semibold text-sm text-orange-800">
+							{formatAmount(report.returns || 0)}
 						</p>
 					</div>
 					<div className="bg-purple-50 p-2 rounded">
@@ -420,43 +426,89 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					</div>
 				)}
 
-				{/* Фото компактно - ИСПРАВЛЕНО: используем правильный URL из apiService */}
-				{report.photo_url && (
-					<div className="bg-gray-50 p-2 rounded">
-						<p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1">
-							📸 Фото:
-						</p>
-						<div className="flex justify-center">
-							<img
-								src={getImageUrl(report.photo_url)}
-								alt="Фото отчета"
-								className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
-								onClick={() => {
-									const imageUrl = getImageUrl(report.photo_url);
-									if (imageUrl) window.open(imageUrl, '_blank');
-								}}
-								onError={(e) => {
-									e.target.style.display = 'none';
-									e.target.nextElementSibling.style.display = 'block';
-								}}
-								onLoad={(e) => {
-									e.target.style.display = 'block';
-									if (e.target.nextElementSibling) {
-										e.target.nextElementSibling.style.display = 'none';
-									}
-								}}
-							/>
-							<div
-								style={{ display: 'none' }}
-								className="text-center p-4 bg-gray-100 rounded border border-gray-300"
-							>
-								<div className="text-gray-400 text-2xl mb-2">🖼️</div>
-								<p className="text-xs text-gray-500">Фото недоступно</p>
+			{/* Фото компактно - ИСПРАВЛЕНО: используем правильный URL из apiService */}
+			{(report.photo_url || report.receipt_photo_url) && (
+				<div className="bg-gray-50 p-2 rounded">
+					<p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1">
+						📸 Фото:
+					</p>
+
+					{/* Сетка для фото */}
+					<div className={`grid gap-2 ${report.photo_url && report.receipt_photo_url ? 'grid-cols-2' : 'grid-cols-1'}`}>
+						{/* Основное фото отчета */}
+						{report.photo_url && (
+							<div>
+								<p className="text-xs text-gray-600 mb-1 text-center">Фото отчёта</p>
+								<div className="flex justify-center">
+									<img
+										src={getImageUrl(report.photo_url)}
+										alt="Фото отчета"
+										className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+										onClick={() => {
+											const imageUrl = getImageUrl(report.photo_url);
+											if (imageUrl) window.open(imageUrl, '_blank');
+										}}
+										onError={(e) => {
+											e.target.style.display = 'none';
+											e.target.nextElementSibling.style.display = 'block';
+										}}
+										onLoad={(e) => {
+											e.target.style.display = 'block';
+											if (e.target.nextElementSibling) {
+												e.target.nextElementSibling.style.display = 'none';
+											}
+										}}
+									/>
+									<div
+										style={{ display: 'none' }}
+										className="text-center p-4 bg-gray-100 rounded border border-gray-300"
+									>
+										<div className="text-gray-400 text-2xl mb-2">🖼️</div>
+										<p className="text-xs text-gray-500">Фото недоступно</p>
+									</div>
+								</div>
 							</div>
-						</div>
-						<p className="text-xs text-gray-500 text-center mt-1">Нажмите для увеличения</p>
+						)}
+
+						{/* НОВОЕ: Фото чека с магазина */}
+						{report.receipt_photo_url && (
+							<div>
+								<p className="text-xs text-gray-600 mb-1 text-center">Чек с магазина</p>
+								<div className="flex justify-center">
+									<img
+										src={getImageUrl(report.receipt_photo_url)}
+										alt="Фото чека"
+										className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+										onClick={() => {
+											const imageUrl = getImageUrl(report.receipt_photo_url);
+											if (imageUrl) window.open(imageUrl, '_blank');
+										}}
+										onError={(e) => {
+											e.target.style.display = 'none';
+											e.target.nextElementSibling.style.display = 'block';
+										}}
+										onLoad={(e) => {
+											e.target.style.display = 'block';
+											if (e.target.nextElementSibling) {
+												e.target.nextElementSibling.style.display = 'none';
+											}
+										}}
+									/>
+									<div
+										style={{ display: 'none' }}
+										className="text-center p-4 bg-gray-100 rounded border border-gray-300"
+									>
+										<div className="text-gray-400 text-2xl mb-2">🧾</div>
+										<p className="text-xs text-gray-500">Чек недоступен</p>
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
-				)}
+
+					<p className="text-xs text-gray-500 text-center mt-1">Нажмите для увеличения</p>
+				</div>
+			)}
 			</div>
 		);
 	};
@@ -475,7 +527,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				</div>
 				<div className="flex items-center space-x-2">
 					<div className="text-sm font-semibold text-gray-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
-						{formatDate(report.created_at)}
+						{formatDate(report.date || report.created_at)}
 					</div>
 					<button
 						onClick={() => openDeleteModal(report.id, selectedCategory)}
@@ -628,7 +680,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					</div>
 					<div className="flex items-center space-x-2">
 						<div className="text-sm font-semibold text-gray-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
-							{formatDate(report.created_at)}
+							{formatDate(report.date || report.created_at)}
 						</div>
 						<button
 							onClick={() => openDeleteModal(report.id, selectedCategory)}
@@ -702,7 +754,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					</div>
 					<div className="flex items-center space-x-2">
 						<div className="text-sm font-semibold text-gray-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
-							{formatDate(report.created_at)}
+							{formatDate(report.date || report.created_at)}
 						</div>
 						<button
 							onClick={() => openDeleteModal(report.id, selectedCategory)}

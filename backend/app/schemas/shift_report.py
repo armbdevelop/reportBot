@@ -76,6 +76,11 @@ class ShiftReportCreate(BaseModel):
         StringConstraints(pattern=r"^(morning|night)$")
     ] = Field(description="Тип смены", example="morning")
 
+    shift_date: Optional[datetime] = Field(
+        default=None,
+        description="Дата и время смены (если не указана, используется текущее время МСК)",
+        example="2025-11-12T20:43:00"
+    )
 
     cashier_name: str = Field(
         ...,
@@ -206,6 +211,7 @@ class ShiftReportResponse(BaseModel):
     )
 
     photo_path: str = Field(description="Путь к фото отчета")
+    receipt_photo_path: Optional[str] = Field(default=None, description="Путь к фото чека с магазина")
     status: str = Field(description="Статус отчета")
     created_at: datetime = Field(description="Время создания")
 
