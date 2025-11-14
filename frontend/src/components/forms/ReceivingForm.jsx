@@ -39,7 +39,6 @@ export const ReceivingForm = ({
     { name: 'Кураговый компот', unit: 'кол-во' },
     { name: 'IL Primo', unit: 'кол-во' },
     { name: 'Добрый ПЭТ', unit: 'кол-во' },
-    { name: 'IL Primo (дубль)', unit: 'кол-во' },
     { name: 'Колд Брю', unit: 'кол-во' },
     { name: 'Айран', unit: 'кол-во' },
     { name: 'Вода', unit: 'кол-во' }
@@ -516,7 +515,7 @@ export const ReceivingForm = ({
                 <div className="text-amber-600 text-base">⚠️</div>
                 <div>
                   <p className="text-xs font-medium text-amber-800">
-                    Пункт 3. Перемещение с других точек
+                    Перемещение с других точек
                   </p>
                 </div>
               </div>
@@ -524,14 +523,14 @@ export const ReceivingForm = ({
 
             <div className="space-y-1.5">
               {formData.peremesheniye.map((item, index) => (
-                <div key={index} className="grid grid-cols-[2fr_0.8fr_0.8fr] gap-1.5">
+                <div key={index} className="grid grid-cols-3 gap-1.5">
                   <MemoizedInput
                     type="text"
                     placeholder="Название"
                     value={item.name}
                     onChange={(e) => handleArrayChange('peremesheniye', index, 'name', e.target.value)}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full"
                     name={`peremesheniye-name-${index}`}
                     id={`peremesheniye-name-${index}`}
                   />
@@ -543,7 +542,7 @@ export const ReceivingForm = ({
                       handleArrayChange('peremesheniye', index, 'quantity', value)
                     )}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full text-center"
                     name={`peremesheniye-quantity-${index}`}
                     id={`peremesheniye-quantity-${index}`}
                   />
@@ -553,7 +552,7 @@ export const ReceivingForm = ({
                     value={item.unit}
                     onChange={(e) => handleArrayChange('peremesheniye', index, 'unit', e.target.value)}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full text-center"
                     name={`peremesheniye-unit-${index}`}
                     id={`peremesheniye-unit-${index}`}
                   />
@@ -577,7 +576,7 @@ export const ReceivingForm = ({
                 <div className="text-green-600 text-base">🛒</div>
                 <div>
                   <p className="text-xs font-medium text-green-800">
-                    Пункт 4. Покупки с магазина
+                    Покупки с магазина
                   </p>
                 </div>
               </div>
@@ -585,14 +584,14 @@ export const ReceivingForm = ({
 
             <div className="space-y-1.5">
               {formData.pokupki.map((item, index) => (
-                <div key={index} className="grid grid-cols-[2fr_0.8fr_0.8fr] gap-1.5">
+                <div key={index} className="grid grid-cols-3 gap-1.5">
                   <MemoizedInput
                     type="text"
                     placeholder="Название"
                     value={item.name}
                     onChange={(e) => handleArrayChange('pokupki', index, 'name', e.target.value)}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full"
                     name={`pokupki-name-${index}`}
                     id={`pokupki-name-${index}`}
                   />
@@ -604,7 +603,7 @@ export const ReceivingForm = ({
                       handleArrayChange('pokupki', index, 'quantity', value)
                     )}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full text-center"
                     name={`pokupki-quantity-${index}`}
                     id={`pokupki-quantity-${index}`}
                   />
@@ -614,7 +613,7 @@ export const ReceivingForm = ({
                     value={item.unit}
                     onChange={(e) => handleArrayChange('pokupki', index, 'unit', e.target.value)}
                     disabled={isLoading}
-                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    className="p-1 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs w-full text-center"
                     name={`pokupki-unit-${index}`}
                     id={`pokupki-unit-${index}`}
                   />
@@ -638,7 +637,7 @@ export const ReceivingForm = ({
                 <div className="text-purple-600 text-lg">📸</div>
                 <div>
                   <p className="text-sm font-medium text-purple-800 mb-1">
-                    Пункт 5. Фотографии всех накладных (обязательный)
+                    Фотографии всех накладных (обязательный)
                   </p>
                   <p className="text-sm text-purple-700">
                     Добавьте все фото накладных которые поступили, без письменного формата.
@@ -782,4 +781,3 @@ export const ReceivingForm = ({
     </>
   );
 };
-

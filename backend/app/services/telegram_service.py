@@ -690,7 +690,7 @@ class TelegramService:
         # Кухня (Поставщики - Пункты 1 и 2)
         kuxnya = data.get('kuxnya', [])
         if kuxnya:
-            message += "\n<b>Пункт 1 и Пунтк 2.</b>\n<b>Основное:</b>\n"
+            message += "\n<b>Основное и Напитки</b>\n"
             for item in kuxnya:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)

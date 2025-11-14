@@ -114,7 +114,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 		isDeleting: false,
 	});
 
-	const ITEMS_PER_PAGE = 10;
+	const ITEMS_PER_PAGE = 30;
 
 	// Мемоизируем текущую категорию для предотвращения лишних вычислений
 	const currentCategory = useMemo(() => {
@@ -594,7 +594,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					<div className="border border-green-200 rounded-lg p-3 bg-green-50">
 						<h4 className="font-semibold text-green-800 mb-1 flex items-center">
 							<span className="mr-2">🍳</span>
-							Пункт 1 и Пунтк 2. ({report.kuxnya.length} поз.)
+							Основное и Напитки ({report.kuxnya.length} поз.)
 						</h4>
 						<p className="text-xs font-semibold text-green-700 mb-2">Основное:</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -1386,8 +1386,8 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					<div className="space-y-3">{reports.map(renderReportCard)}</div>
 				)}
 
-				{/* Пагинация - скрываем для списаний за период */}
-				{totalPages > 1 && selectedCategory !== 'writeoff-period-reports' && (
+				{/* Пагинация */}
+				{totalPages > 1 && (
 					<div className="bg-white rounded-lg shadow-md p-4 mt-4">
 						<div className="flex justify-center items-center space-x-2">
 							<button
