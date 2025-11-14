@@ -523,7 +523,7 @@ export const ReceivingForm = ({
 
             <div className="space-y-1.5">
               {formData.peremesheniye.map((item, index) => (
-                <div key={index} className="grid grid-cols-3 gap-1.5">
+                <div key={index} className="grid gap-1.5 grid-cols-[1fr_1fr_0.6fr]">
                   <MemoizedInput
                     type="text"
                     placeholder="Название"
@@ -584,7 +584,7 @@ export const ReceivingForm = ({
 
             <div className="space-y-1.5">
               {formData.pokupki.map((item, index) => (
-                <div key={index} className="grid grid-cols-3 gap-1.5">
+                <div key={index} className="grid gap-1.5 grid-cols-[1fr_1fr_0.6fr]">
                   <MemoizedInput
                     type="text"
                     placeholder="Название"
