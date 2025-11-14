@@ -56,6 +56,21 @@ sudo ls -la /etc/letsencrypt/live/ВАШ_ДОМЕН/
 
 ## 3. Настройка Nginx
 
+### Создание файла паролей для защищенных страниц
+
+```bash
+# Устанавливаем утилиту для создания паролей
+sudo apt install -y apache2-utils
+
+# Создаем файл с паролем для страницы просмотра отчетов
+# Используем фиксированное имя пользователя (любое), вам нужно будет ввести только пароль
+# При входе на страницу потребуется ввести только пароль (логин можно оставить пустым или любой)
+sudo htpasswd -c /etc/nginx/.htpasswd user
+
+# Проверяем, что файл создан
+sudo cat /etc/nginx/.htpasswd
+```
+
 ### Создание конфигурации
 
 ```bash
@@ -65,23 +80,30 @@ sudo nano /etc/nginx/sites-available/ВАШ_ДОМЕН
 **Содержимое файла:**
 
 ```nginx
-# /etc/nginx/sites-available/ВАШ_ДОМЕН
+# /etc/nginx/sites-available/report.dg05.ru
 
 server {
+    if ($host = report.dg05.ru) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
     listen 80;
-    server_name ВАШ_ДОМЕН;
+    server_name report.dg05.ru;
     
     # Редирект на HTTPS
     return 301 https://$server_name$request_uri;
+
+
 }
 
 server {
     listen 443 ssl http2;
-    server_name ВАШ_ДОМЕН;
+    server_name report.dg05.ru;
 
     # SSL сертификаты
-    ssl_certificate /etc/letsencrypt/live/ВАШ_ДОМЕН/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/ВАШ_ДОМЕН/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/report.dg05.ru/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/report.dg05.ru/privkey.pem; # managed by Certbot
     
     # SSL настройки
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -119,7 +141,7 @@ server {
         image/svg+xml;
 
     # API роуты - проксируем на бэкенд FastAPI
-    location ~ ^/(shift-reports|daily_inventory|report-on-goods|writeoff-transfer|telegram|docs|openapi\.json|redoc|health) {
+    location ~ ^/(shift-reports|daily_inventory|report-on-goods|writeoff-transfer|telegram|docs|openapi\.json|redoc|health|inventory-management|daily-inventory-v2) {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -163,6 +185,16 @@ server {
         index index.html;
         try_files $uri $uri/ /index.html;
         
+        # Защита паролем для страницы просмотра отчетов
+        location ~ ^/otchet/views {
+            root /root/reportBot/frontend/dist;
+            try_files $uri $uri/ /index.html;
+            
+            # Базовая HTTP аутентификация
+            auth_basic "Доступ к просмотру отчетов";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+        }
+        
         # Кеширование для статических файлов
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires 1y;
@@ -177,7 +209,9 @@ server {
             add_header Pragma "no-cache";
         }
     }
+
 }
+
 ```
 
 ### Настройка nginx для работы от root

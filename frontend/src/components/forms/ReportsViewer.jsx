@@ -772,18 +772,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	const WriteoffPeriodCard = ({ reports }) => {
 		if (!reports || reports.length === 0) return null;
 
-		// Объединяем все списания из всех отчётов
-		const allWriteoffs = reports.flatMap(report =>
-			(report.writeoffs || []).map(item => ({
-				...item,
-				reportId: report.id,
-				reportDate: report.date,
-				cashier: report.cashier_name,
-				location: report.location
-			}))
-		);
-
-		const totalItems = allWriteoffs.length;
+		const totalItems = reports.reduce((sum, report) => sum + (report.writeoffs?.length || 0), 0);
 		const totalReports = reports.length;
 
 		return (
@@ -803,32 +792,36 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					</div>
 				</div>
 
-				{/* Список всех списаний */}
+				{/* Список списаний, сгруппированных по отчётам */}
 				<div className="space-y-4">
-					{allWriteoffs.map((item, idx) => (
-						<div key={idx} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-							<div className="space-y-2">
-								{/* Дата, кассир, локация */}
-								<div>
-									<p className="text-gray-700 font-medium">
-										📅 {formatDate(item.reportDate)}
-									</p>
-									<p className="text-gray-700 mt-1">
-										👤 {item.cashier} | 📍 {item.location}
-									</p>
-								</div>
-
-								{/* Товар - вес - причина в одну строку */}
-								<div className="flex items-center gap-2 text-base">
-									<span className="font-bold text-gray-900">{item.name}</span>
-									<span className="text-gray-500">—</span>
-									<span className="font-bold text-gray-900">{item.weight} {item.unit}</span>
-									<span className="text-gray-500">—</span>
-									<span className="bg-red-100 text-red-700 px-3 py-1 rounded font-medium">
-										{item.reason}
-									</span>
-								</div>
+					{reports.map((report) => (
+						<div key={report.id} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+							{/* Шапка отчёта */}
+							<div className="mb-3 pb-2 border-b border-orange-300">
+								<p className="text-gray-700 font-medium">
+									📅 {formatDate(report.date || report.created_at)}
+								</p>
+								<p className="text-gray-700 mt-1">
+									👤 {report.cashier_name} | 📍 {report.location}
+								</p>
 							</div>
+
+							{/* Список товаров из этого отчёта */}
+							{report.writeoffs && report.writeoffs.length > 0 && (
+								<div className="space-y-2">
+									{report.writeoffs.map((item, idx) => (
+										<div key={idx} className="flex items-center gap-2 text-base">
+											<span className="font-bold text-gray-900">{item.name}</span>
+											<span className="text-gray-500">—</span>
+											<span className="font-bold text-gray-900">{item.weight} {item.unit}</span>
+											<span className="text-gray-500">—</span>
+											<span className="bg-red-100 text-red-700 px-3 py-1 rounded font-medium">
+												{item.reason}
+											</span>
+										</div>
+									))}
+								</div>
+							)}
 						</div>
 					))}
 				</div>
