@@ -131,6 +131,7 @@ async def create_report_on_goods(
         photos: Optional[List[UploadFile]] = File(None, description="Фотографии товаров/накладных"),
         shift_type: str = Form(..., regex="^(morning|night)$", description="Тип смены", example="morning"),
         cashier_name: str = Form(..., description="ФИО кассира", example="Иванов Иван"),
+        custom_date: Optional[str] = Form(None, description="Опциональная дата и время в формате ISO (YYYY-MM-DDTHH:MM)", example="2025-11-14T10:30"),
         db: AsyncSession = Depends(get_db),
 ) -> ReportOnGoodsResponse:
     """
@@ -293,6 +294,18 @@ async def create_report_on_goods(
                     detail=f"Ошибка валидации упаковок: {str(e)}"
                 )
 
+        # Парсим опциональную дату
+        report_date = None
+        if custom_date:
+            try:
+                # Пытаемся распарсить дату в формате ISO
+                report_date = datetime.fromisoformat(custom_date.replace('Z', '+00:00'))
+            except (ValueError, AttributeError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Некорректный формат даты. Используйте ISO формат (YYYY-MM-DDTHH:MM): {str(e)}"
+                )
+
         # Создаем отчет
         report_on_goods_data = ReportOnGoodsCreate(
             location=location,
@@ -300,7 +313,8 @@ async def create_report_on_goods(
             bar=bar_list,
             upakovki=upakovky_list,
             shift_type=shift_type,
-            cashier_name=cashier_name
+            cashier_name=cashier_name,
+            custom_date=report_date
         )
 
         photos_data = []
@@ -473,6 +487,7 @@ async def get_receiving_reports_list(
             reports_list.append({
                 "id": report.id,
                 "location": report.location,
+                "date": report.date.isoformat() if report.date else None,
                 "cashier_name": report.cashier_name,
                 "shift_type": report.shift_type,
                 "goods_count": goods_count,
@@ -480,8 +495,10 @@ async def get_receiving_reports_list(
                 "created_at": report.date.isoformat() if report.date else None,
                 "kuxnya": kuxnya_items,
                 "bar": bar_items,
-                "upakovki": upakovki_items,
-                "total_items": total_items
+                "upakovki_xoz": upakovki_items,  # Для внутреннего имени
+                "upakovki": upakovki_items,  # Алиас для фронтенда
+                "photos_urls": report.photos_urls if getattr(report, 'photos_urls', None) is not None else [],
+                 "total_items": total_items
             })
 
         return {
@@ -524,16 +541,18 @@ async def get_receiving_report(
         return {
             "id": report.id,
             "location": report.location,
+            "date": report.date.isoformat() if report.date else None,
             "cashier_name": report.cashier_name,
             "shift_type": report.shift_type,
             "kuxnya": report.kuxnya if report.kuxnya else [],
             "bar": report.bar if report.bar else [],
-            "upakovki": report.upakovki_xoz if report.upakovki_xoz else [],
-            "photos_urls": report.photos_urls if hasattr(report, 'photos_urls') else [],
-            "supplier": getattr(report, 'supplier', None),
-            "created_at": report.date.isoformat() if report.date else None,
-            "updated_at": None
-        }
+            "upakovki_xoz": report.upakovki_xoz if report.upakovki_xoz else [],  # Исправлено
+            "upakovki": report.upakovki_xoz if report.upakovki_xoz else [],  # Алиас для фронтенда
+            "photos_urls": report.photos_urls if getattr(report, 'photos_urls', None) is not None else [],
+             "supplier": getattr(report, 'supplier', None),
+             "created_at": report.date.isoformat() if report.date else None,
+             "updated_at": None
+         }
 
     except HTTPException:
         raise

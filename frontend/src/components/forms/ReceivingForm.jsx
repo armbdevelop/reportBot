@@ -5,7 +5,7 @@ import { ValidationAlert } from '../common/ValidationAlert';
 import { ConfirmationModal } from '../common/ConfirmationModal';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useFormData } from '../../hooks/useFormData';
-import { getTodayDate, getYesterdayDate, getCurrentMSKTime } from '../../utils/dateUtils';
+import { getCurrentMSKTime } from '../../utils/dateUtils';
 
 export const ReceivingForm = ({
   isLoading,
@@ -22,28 +22,52 @@ export const ReceivingForm = ({
   locations,
   apiService
 }) => {
+  // Предзаполненные товары для Пункта 1 (Основное)
+  const PUNKT1_ITEMS = [
+    { name: 'Лепешки', unit: 'кол-во' },
+    { name: 'Курица', unit: 'кол-во' },
+    { name: 'Компоты', unit: 'кол-во' },
+    { name: 'Лаваши', unit: 'кол-во' },
+    { name: 'Булки', unit: 'кол-во' }
+  ];
+
+  // Предзаполненные товары для Пункта 2 (Напитки)
+  const PUNKT2_ITEMS = [
+    { name: 'ЖБ напитки', unit: 'кол-во' },
+    { name: 'Кинза напитки', unit: 'кол-во' },
+    { name: 'Энергетики', unit: 'кол-во' },
+    { name: 'Кураговый компот', unit: 'кол-во' },
+    { name: 'IL Primo', unit: 'кол-во' },
+    { name: 'Добрый ПЭТ', unit: 'кол-во' },
+    { name: 'IL Primo (дубль)', unit: 'кол-во' },
+    { name: 'Колд Брю', unit: 'кол-во' },
+    { name: 'Айран', unit: 'кол-во' },
+    { name: 'Вода', unit: 'кол-во' }
+  ];
+
   const [formData, setFormData] = useState({
     location: '',
-    shift: '', // ДОБАВИТЬ
-    cashierName: '', // ДОБАВИТЬ
-    date: getCurrentMSKTime(), // ИЗМЕНЕНО: datetime вместо getCurrentDate()
-    photos: [],
-    kitchen: Array(15).fill({ name: '', quantity: '', unit: '' }), // ИСПРАВЛЕНО: 15 элементов
-    bar: Array(4).fill({ name: '', quantity: '', unit: '' }),
-    packaging: Array(5).fill({ name: '', quantity: '', unit: '' })
+    shift: '',
+    cashierName: '',
+    date: getCurrentMSKTime(),
+    // Пункт 1 - Основное (предзаполненное)
+    punkt1: PUNKT1_ITEMS.map(item => ({ ...item, quantity: '' })),
+    // Пункт 2 - Напитки (предзаполненное)
+    punkt2: PUNKT2_ITEMS.map(item => ({ ...item, quantity: '' })),
+    // Пункт 3 - Перемещение с других точек (2 блока + кнопка добавить)
+    peremesheniye: Array(2).fill(null).map(() => ({ name: '', quantity: '', unit: '' })),
+    // Пункт 4 - Покупки с магазина (2 блока + кнопка добавить)
+    pokupki: Array(2).fill(null).map(() => ({ name: '', quantity: '', unit: '' })),
+    // Пункт 5 - Фотографии накладных
+    nakladniyePhotos: []
   });
-
-  // НОВОЕ: состояние для дополнительных фото
-  const [additionalPhotos, setAdditionalPhotos] = useState([]);
 
   const [showClearModal, setShowClearModal] = useState(false);
   const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
-  const [showDeleteAdditionalPhotoModal, setShowDeleteAdditionalPhotoModal] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState(null);
-  const [additionalPhotoToDelete, setAdditionalPhotoToDelete] = useState(null);
+  const [useCustomDateTime, setUseCustomDateTime] = useState(false);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
-  const singlePhotoInputRef = useRef(null);
-  const additionalPhotoInputRef = useRef(null); // НОВОЕ: ref для дополнительных фото
+  const nakladniyePhotoInputRef = useRef(null);
 
   // Загружаем черновик при инициализации
   useEffect(() => {
@@ -51,29 +75,22 @@ export const ReceivingForm = ({
       const draftData = loadDraft(currentDraftId);
       if (draftData) {
         setFormData(draftData);
-        // Восстанавливаем дополнительные фото из черновика
-        if (draftData.additionalPhotos && Array.isArray(draftData.additionalPhotos)) {
-          setAdditionalPhotos(draftData.additionalPhotos);
-        } else {
-          setAdditionalPhotos([]);
-        }
       }
     }
   }, [currentDraftId, loadDraft]);
 
   // Функция для автосохранения
   const autoSaveFunction = useCallback(async (data) => {
-    const hasKitchenItems = data.kitchen.some(item => item.name || item.quantity || item.unit);
-    const hasBarItems = data.bar.some(item => item.name || item.quantity || item.unit);
-    const hasPackagingItems = data.packaging.some(item => item.name || item.quantity || item.unit);
+    const hasPunkt1Items = data.punkt1?.some(item => item.quantity);
+    const hasPunkt2Items = data.punkt2?.some(item => item.quantity);
+    const hasPeremeshenieyeItems = data.peremesheniye?.some(item => item.name || item.quantity || item.unit);
+    const hasPokupkiItems = data.pokupki?.some(item => item.name || item.quantity || item.unit);
 
-    if (data.location || data.photos.length > 0 || additionalPhotos.length > 0 ||
-        hasKitchenItems || hasBarItems || hasPackagingItems) {
-      // Добавляем additionalPhotos к данным для сохранения
-      const dataWithAdditionalPhotos = { ...data, additionalPhotos };
-      await saveDraft('receiving', dataWithAdditionalPhotos);
+    if (data.location || data.nakladniyePhotos?.length > 0 ||
+        hasPunkt1Items || hasPunkt2Items || hasPeremeshenieyeItems || hasPokupkiItems) {
+      await saveDraft('receiving', data);
     }
-  }, [saveDraft, additionalPhotos]);
+  }, [saveDraft]);
 
   // Автосохранение каждые 300мс с сохранением фокуса
   useAutoSave(formData, autoSaveFunction, 300);
@@ -106,53 +123,8 @@ export const ReceivingForm = ({
     }));
   }, []);
 
-  // ИСПРАВЛЕННАЯ функция addPhotos
-  const addPhotos = useCallback((files) => {
-    // Проверяем что files является массивом или FileList
-    const fileArray = Array.isArray(files) ? files : Array.from(files || []);
-
-    const validFiles = fileArray.filter(file => {
-      // Расширенный список поддерживаемых форматов
-      const validTypes = [
-        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
-        'image/bmp', 'image/webp', 'image/heic', 'image/heif'
-      ];
-      const maxSize = 50 * 1024 * 1024; // Увеличиваем до 50MB для HEIC
-
-      // Дополнительная проверка по расширению файла
-      const fileName = file.name.toLowerCase();
-      const hasValidExtension = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif']
-        .some(ext => fileName.endsWith(ext));
-
-      return (validTypes.includes(file.type) || hasValidExtension) && file.size <= maxSize;
-    });
-
-    if (validFiles.length !== fileArray.length) {
-      alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
-    }
-
-    setFormData(prev => {
-      const newPhotos = [...prev.photos, ...validFiles].slice(0, 10);
-      return { ...prev, photos: newPhotos };
-    });
-
-    // Очищаем input после загрузки
-    if (singlePhotoInputRef.current) {
-      singlePhotoInputRef.current.value = '';
-    }
-
-    // Очищаем ошибку валидации при добавлении фото
-    if (validationErrors.photos) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.photos;
-        return newErrors;
-      });
-    }
-  }, [validationErrors, setValidationErrors]);
-
-  // НОВОЕ: функция для добавления дополнительных фото
-  const addAdditionalPhotos = useCallback((files) => {
+  // Функция для добавления фотографий накладных
+  const addNakladniyePhotos = useCallback((files) => {
     const fileArray = Array.isArray(files) ? files : Array.from(files || []);
 
     const validFiles = fileArray.filter(file => {
@@ -173,58 +145,47 @@ export const ReceivingForm = ({
       alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
     }
 
-    setAdditionalPhotos(prev => {
-      const newPhotos = [...prev, ...validFiles].slice(0, 10);
-      return newPhotos;
+    setFormData(prev => {
+      const newPhotos = [...prev.nakladniyePhotos, ...validFiles];
+      return { ...prev, nakladniyePhotos: newPhotos };
     });
 
     // Очищаем input после загрузки
-    if (additionalPhotoInputRef.current) {
-      additionalPhotoInputRef.current.value = '';
+    if (nakladniyePhotoInputRef.current) {
+      nakladniyePhotoInputRef.current.value = '';
     }
-  }, []);
 
-  const removePhoto = useCallback((index) => {
+    // Очищаем ошибку валидации при добавлении фото
+    if (validationErrors.nakladniyePhotos) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.nakladniyePhotos;
+        return newErrors;
+      });
+    }
+  }, [validationErrors, setValidationErrors]);
+
+  const removeNakladniyePhoto = useCallback((index) => {
     setFormData(prev => {
-      const newPhotos = prev.photos.filter((_, i) => i !== index);
-      return { ...prev, photos: newPhotos };
+      const newPhotos = prev.nakladniyePhotos.filter((_, i) => i !== index);
+      return { ...prev, nakladniyePhotos: newPhotos };
     });
     setShowDeletePhotoModal(false);
     setPhotoToDelete(null);
   }, []);
 
-  // НОВОЕ: функция для удаления дополнительных фото
-  const removeAdditionalPhoto = useCallback((index) => {
-    setAdditionalPhotos(prev => prev.filter((_, i) => i !== index));
-    setShowDeleteAdditionalPhotoModal(false);
-    setAdditionalPhotoToDelete(null);
-  }, []);
-
-  // Функция для показа модального окна удаления фото
+  // Функция для показа модального окна удаления фото накладных
   const handleDeletePhotoClick = useCallback((index) => {
     setPhotoToDelete(index);
     setShowDeletePhotoModal(true);
   }, []);
 
-  // НОВОЕ: функция для показа модального окна удаления дополнительного фото
-  const handleDeleteAdditionalPhotoClick = useCallback((index) => {
-    setAdditionalPhotoToDelete(index);
-    setShowDeleteAdditionalPhotoModal(true);
-  }, []);
-
-  // Функция подтверждения удаления фото
+  // Функция подтверждения удаления фото накладных
   const handleConfirmDeletePhoto = useCallback(() => {
     if (photoToDelete !== null) {
-      removePhoto(photoToDelete);
+      removeNakladniyePhoto(photoToDelete);
     }
-  }, [photoToDelete, removePhoto]);
-
-  // НОВОЕ: функция подтверждения удаления дополнительного фото
-  const handleConfirmDeleteAdditionalPhoto = useCallback(() => {
-    if (additionalPhotoToDelete !== null) {
-      removeAdditionalPhoto(additionalPhotoToDelete);
-    }
-  }, [additionalPhotoToDelete, removeAdditionalPhoto]);
+  }, [photoToDelete, removeNakladniyePhoto]);
 
   // Функция очистки формы
   const handleClearForm = useCallback(() => {
@@ -232,53 +193,30 @@ export const ReceivingForm = ({
       clearCurrentDraft();
     }
     setValidationErrors({});
-    setAdditionalPhotos([]); // НОВОЕ: очистка дополнительных фото
     // Очищаем input для фотографий
-    if (singlePhotoInputRef.current) {
-      singlePhotoInputRef.current.value = '';
-    }
-    if (additionalPhotoInputRef.current) {
-      additionalPhotoInputRef.current.value = '';
+    if (nakladniyePhotoInputRef.current) {
+      nakladniyePhotoInputRef.current.value = '';
     }
     window.location.reload();
   }, [currentDraftId, clearCurrentDraft, setValidationErrors]);
-
-  // НОВОЕ: функция отправки дополнительных фото
-  const sendAdditionalPhotos = useCallback(async () => {
-    if (additionalPhotos.length === 0 || !formData.location) return;
-
-    setIsLoading(true);
-    try {
-      await apiService.sendAdditionalPhotos(formData.location, additionalPhotos);
-      showNotification('success', 'Дополнительные фото отправлены!', 'Дополнительные фотографии накладных успешно отправлены');
-      setAdditionalPhotos([]); // Очищаем дополнительные фото после успешной отправки
-      if (additionalPhotoInputRef.current) {
-        additionalPhotoInputRef.current.value = '';
-      }
-    } catch (error) {
-      console.error('❌ Ошибка отправки дополнительных фото:', error);
-      showNotification('error', 'Ошибка сервера', `Не удалось отправить дополнительные фото: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [additionalPhotos, formData.location, apiService, showNotification, setIsLoading]);
 
   const handleSubmit = useCallback(async () => {
     // Валидация
     const errors = {};
 
     if (!formData.location) errors.location = 'Выберите локацию';
-    if (!formData.shift) errors.shift = 'Выберите смену'; // ДОБАВИТЬ
-    if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира'; // ДОБАВИТЬ
+    if (!formData.shift) errors.shift = 'Выберите смену';
+    if (!formData.cashierName.trim()) errors.cashierName = 'Введите имя кассира';
     if (!formData.date) errors.date = 'Выберите дату';
 
     // Проверяем, что есть хотя бы одна заполненная позиция
-    const hasKitchenItems = formData.kitchen.some(item => item.name && item.quantity && item.unit);
-    const hasBarItems = formData.bar.some(item => item.name && item.quantity && item.unit);
-    const hasPackagingItems = formData.packaging.some(item => item.name && item.quantity && item.unit);
+    const hasPunkt1Items = formData.punkt1.some(item => item.quantity);
+    const hasPunkt2Items = formData.punkt2.some(item => item.quantity);
+    const hasPeremeshenieyeItems = formData.peremesheniye.some(item => item.name && item.quantity && item.unit);
+    const hasPokupkiItems = formData.pokupki.some(item => item.name && item.quantity && item.unit);
 
-    if (!hasKitchenItems && !hasBarItems && !hasPackagingItems) {
-      errors.items = 'Заполните хотя бы одну позицию товара (название + количество + единица измерения)';
+    if (!hasPunkt1Items && !hasPunkt2Items && !hasPeremeshenieyeItems && !hasPokupkiItems) {
+      errors.items = 'Заполните хотя бы одну позицию товара';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -294,72 +232,73 @@ export const ReceivingForm = ({
 
       // Основные поля
       apiFormData.append('location', formData.location);
-      apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night'); // ДОБАВИТЬ
-      apiFormData.append('cashier_name', formData.cashierName); // ДОБАВИТЬ
+      apiFormData.append('shift_type', formData.shift === 'Утро' ? 'morning' : 'night');
+      apiFormData.append('cashier_name', formData.cashierName);
 
-      formData.photos.forEach((photo, index) => {
-        apiFormData.append(`photos`, photo);
+      // Отправляем custom_date только если пользователь выбрал ручной ввод
+      if (useCustomDateTime && formData.date) {
+        apiFormData.append('custom_date', formData.date);
+      }
+
+      // Фотографии накладных
+      formData.nakladniyePhotos.forEach((photo) => {
+        apiFormData.append('photos', photo);
       });
 
-      // Кухня - ИСПРАВЛЕНО: используем правильное поле API
-      const kuxnyaItems = formData.kitchen
-        .filter(item => item.name && item.quantity && item.unit)
+      // Пункт 1 - Основное (кухня)
+      const punkt1Items = formData.punkt1
+        .filter(item => item.quantity)
         .map(item => ({
           name: item.name,
-          unit: item.unit,  // отдельное поле,
+          unit: item.unit,
           count: parseInt(item.quantity)
         }));
 
-      if (kuxnyaItems.length > 0) {
-        apiFormData.append('kuxnya_json', JSON.stringify(kuxnyaItems));
-      }
-
-      // Бар - ИСПРАВЛЕНО: используем правильное поле API
-      const barItems = formData.bar
-        .filter(item => item.name && item.quantity && item.unit)
+      // Пункт 2 - Напитки (бар)
+      const punkt2Items = formData.punkt2
+        .filter(item => item.quantity)
         .map(item => ({
           name: item.name,
-          unit: item.unit,  // отдельное поле,
+          unit: item.unit,
           count: parseInt(item.quantity)
         }));
 
-      if (barItems.length > 0) {
-        apiFormData.append('bar_json', JSON.stringify(barItems));
+      // Объединяем пункты 1 и 2 для отправки в kuxnya_json
+      const allKuxnyaItems = [...punkt1Items, ...punkt2Items];
+      if (allKuxnyaItems.length > 0) {
+        apiFormData.append('kuxnya_json', JSON.stringify(allKuxnyaItems));
       }
 
-      // Упаковки - ИСПРАВЛЕНО: используем правильное поле API
-      const upakovkiItems = formData.packaging
+      // Пункт 3 - Перемещение с других точек (отправляем в bar_json)
+      const peremeshenieyeItems = formData.peremesheniye
         .filter(item => item.name && item.quantity && item.unit)
         .map(item => ({
           name: item.name,
-          unit: item.unit,  // отдельное поле,
+          unit: item.unit,
           count: parseInt(item.quantity)
         }));
 
-      if (upakovkiItems.length > 0) {
-        apiFormData.append('upakovki_json', JSON.stringify(upakovkiItems));
+      if (peremeshenieyeItems.length > 0) {
+        apiFormData.append('bar_json', JSON.stringify(peremeshenieyeItems));
       }
 
-      const result = await apiService.createReceivingReport(apiFormData);
+      // Пункт 4 - Покупки с магазина (отправляем в upakovki_json)
+      const pokupkiItems = formData.pokupki
+        .filter(item => item.name && item.quantity && item.unit)
+        .map(item => ({
+          name: item.name,
+          unit: item.unit,
+          count: parseInt(item.quantity)
+        }));
 
-      // НОВОЕ: автоматически отправляем дополнительные фото если они есть
-      if (additionalPhotos.length > 0) {
-        try {
-          await apiService.sendAdditionalPhotos(formData.location, additionalPhotos);
-          showNotification('success', 'Отчет отправлен!', `Отчет приема товаров успешно отправлен вместе с ${additionalPhotos.length} дополнительными фотографи��ми`);
-          setAdditionalPhotos([]); // Очищаем дополнительные фото после успешной отправки
-          if (additionalPhotoInputRef.current) {
-            additionalPhotoInputRef.current.value = '';
-          }
-        } catch (additionalPhotoError) {
-          console.error('❌ Ошибка отправки дополнительных фото:', additionalPhotoError);
-          showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен, но дополнительные фотографии не удалось отправить');
-        }
-      } else {
-        showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
+      if (pokupkiItems.length > 0) {
+        apiFormData.append('upakovki_json', JSON.stringify(pokupkiItems));
       }
-      clearCurrentDraft(); // Удаляем черновик сразу после успешной отправки
 
+      await apiService.createReceivingReport(apiFormData);
+
+      showNotification('success', 'Отчет отправлен!', 'Отчет приема товаров успешно отправлен и сохранен в системе');
+      clearCurrentDraft();
 
     } catch (error) {
       console.error('❌ Ошибка отправки отчета:', error);
@@ -367,7 +306,7 @@ export const ReceivingForm = ({
     } finally {
       setIsLoading(false);
     }
-  }, [formData, additionalPhotos, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
+  }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
 
   return (
     <>
@@ -416,7 +355,7 @@ export const ReceivingForm = ({
             </div>
           </div>
 
-          {/* Shift Selection - ДОБАВИТЬ ПОСЛЕ БЛОКА LOCATION */}
+          {/* Shift Selection */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <Clock size={16} className="text-red-500" />
@@ -438,12 +377,9 @@ export const ReceivingForm = ({
                 </button>
               ))}
             </div>
-            {validationErrors.shift && (
-              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.shift}</p>
-            )}
           </div>
 
-          {/* Cashier Name - ДОБАВИТЬ ПОСЛЕ БЛОКА SHIFT */}
+          {/* Cashier Name */}
           <div className="mb-4">
             <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-700">
               <User size={16} className="text-red-500" />
@@ -463,416 +399,327 @@ export const ReceivingForm = ({
               name="cashier-name"
               id="cashier-name"
             />
-            {validationErrors.cashierName && (
-              <p className="text-xs text-red-600 mt-1">⚠️ {validationErrors.cashierName}</p>
+          </div>
+
+          {/* Date & Time */}
+          <div className="mb-4">
+            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата и время</label>
+
+            {/* Переключатель: автозаполнение / ручной ввод */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setUseCustomDateTime(false);
+                  handleInputChange('date', getCurrentMSKTime());
+                }}
+                className={`flex-1 p-2 rounded-lg border transition-colors text-sm ${
+                  !useCustomDateTime
+                    ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700'
+                }`}
+                disabled={isLoading}
+              >
+                🕐 Текущее время (МСК)
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseCustomDateTime(true)}
+                className={`flex-1 p-2 rounded-lg border transition-colors text-sm ${
+                  useCustomDateTime
+                    ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                    : 'bg-white border-gray-300 hover:border-gray-400 text-gray-700'
+                }`}
+                disabled={isLoading}
+              >
+                📝 Указать вручную
+              </button>
+            </div>
+
+            {/* Поле ввода даты и времени */}
+            {useCustomDateTime ? (
+              <input
+                type="datetime-local"
+                value={formData.date.slice(0, 16)} // Преобразуем формат для datetime-local
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:border-blue-500 focus:outline-none"
+                disabled={isLoading}
+              />
+            ) : (
+              <input
+                type="text"
+                value={formData.date}
+                readOnly
+                className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+              />
             )}
           </div>
 
-          {/* Date & Time - КАК В КАССОВОМ ОТЧЕТЕ */}
-          <div className="mb-4">
-            <label className="text-sm font-medium block mb-2 text-gray-700">📅 Дата (автозаполнение по МСК)</label>
+          {/* Пункт 1 - Основное */}
+          <div className="mb-6 bg-white p-4 rounded-lg shadow-md border-2 border-orange-200">
+            <h3 className="text-lg font-semibold text-orange-600 mb-3">📦 Пункт 1. Основное</h3>
+            <p className="text-sm text-gray-600 mb-3">Заполните только количество (названия предзаполнены)</p>
+            <div className="space-y-2">
+              {formData.punkt1.map((item, index) => (
+                <div key={index} className="grid grid-cols-[2fr_1fr] gap-2">
+                  <div className="p-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 flex items-center">
+                    {item.name}
+                  </div>
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Кол-во"
+                    value={item.quantity}
+                    onChange={(e) => handleNumberInput(e, (value) =>
+                      handleArrayChange('punkt1', index, 'quantity', value)
+                    )}
+                    disabled={isLoading}
+                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
+                    name={`punkt1-quantity-${index}`}
+                    id={`punkt1-quantity-${index}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Пункт 2 - Напитки */}
+          <div className="mb-6 bg-white p-4 rounded-lg shadow-md border-2 border-blue-200">
+            <h3 className="text-lg font-semibold text-blue-600 mb-3">🥤 Пункт 2. Напитки</h3>
+            <p className="text-sm text-gray-600 mb-3">Заполните только количество (названия предзаполнены)</p>
+            <div className="space-y-2">
+              {formData.punkt2.map((item, index) => (
+                <div key={index} className="grid grid-cols-[2fr_1fr] gap-2">
+                  <div className="p-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-700 flex items-center">
+                    {item.name}
+                  </div>
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Кол-во"
+                    value={item.quantity}
+                    onChange={(e) => handleNumberInput(e, (value) =>
+                      handleArrayChange('punkt2', index, 'quantity', value)
+                    )}
+                    disabled={isLoading}
+                    className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
+                    name={`punkt2-quantity-${index}`}
+                    id={`punkt2-quantity-${index}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Пункт 3 - Перемещение с других точек */}
+          <div className="mb-6">
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-lg mb-3">
+              <div className="flex items-start gap-2">
+                <div className="text-amber-600 text-base">⚠️</div>
+                <div>
+                  <p className="text-xs font-medium text-amber-800">
+                    Пункт 3. Перемещение с других точек
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {formData.peremesheniye.map((item, index) => (
+                <div key={index} className="grid grid-cols-[2fr_0.8fr_0.8fr] gap-1.5">
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Название"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange('peremesheniye', index, 'name', e.target.value)}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`peremesheniye-name-${index}`}
+                    id={`peremesheniye-name-${index}`}
+                  />
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Кол-во"
+                    value={item.quantity}
+                    onChange={(e) => handleNumberInput(e, (value) =>
+                      handleArrayChange('peremesheniye', index, 'quantity', value)
+                    )}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`peremesheniye-quantity-${index}`}
+                    id={`peremesheniye-quantity-${index}`}
+                  />
+                  <MemoizedInput
+                    type="text"
+                    placeholder="ед."
+                    value={item.unit}
+                    onChange={(e) => handleArrayChange('peremesheniye', index, 'unit', e.target.value)}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-amber-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`peremesheniye-unit-${index}`}
+                    id={`peremesheniye-unit-${index}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => addArrayItem('peremesheniye')}
+              disabled={isLoading}
+              className="w-full p-1.5 mt-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-md hover:shadow-lg text-sm"
+            >
+              <Plus size={14} />
+              Добавить еще
+            </button>
+          </div>
+
+          {/* Пункт 4 - Покупки с магазина */}
+          <div className="mb-6">
+            <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded-lg mb-3">
+              <div className="flex items-start gap-2">
+                <div className="text-green-600 text-base">🛒</div>
+                <div>
+                  <p className="text-xs font-medium text-green-800">
+                    Пункт 4. Покупки с магазина
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {formData.pokupki.map((item, index) => (
+                <div key={index} className="grid grid-cols-[2fr_0.8fr_0.8fr] gap-1.5">
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Название"
+                    value={item.name}
+                    onChange={(e) => handleArrayChange('pokupki', index, 'name', e.target.value)}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`pokupki-name-${index}`}
+                    id={`pokupki-name-${index}`}
+                  />
+                  <MemoizedInput
+                    type="text"
+                    placeholder="Кол-во"
+                    value={item.quantity}
+                    onChange={(e) => handleNumberInput(e, (value) =>
+                      handleArrayChange('pokupki', index, 'quantity', value)
+                    )}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`pokupki-quantity-${index}`}
+                    id={`pokupki-quantity-${index}`}
+                  />
+                  <MemoizedInput
+                    type="text"
+                    placeholder="ед."
+                    value={item.unit}
+                    onChange={(e) => handleArrayChange('pokupki', index, 'unit', e.target.value)}
+                    disabled={isLoading}
+                    className="p-1.5 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-xs"
+                    name={`pokupki-unit-${index}`}
+                    id={`pokupki-unit-${index}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => addArrayItem('pokupki')}
+              disabled={isLoading}
+              className="w-full p-1.5 mt-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-md hover:shadow-lg text-sm"
+            >
+              <Plus size={14} />
+              Добавить еще
+            </button>
+          </div>
+
+          {/* Пункт 5 - Фотографии накладных */}
+          <div className="mb-6">
+            <div className="bg-purple-50 border-l-4 border-purple-400 p-4 rounded-lg mb-4">
+              <div className="flex items-start gap-2">
+                <div className="text-purple-600 text-lg">📸</div>
+                <div>
+                  <p className="text-sm font-medium text-purple-800 mb-1">
+                    Пункт 5. Фотографии всех накладных (обязательный)
+                  </p>
+                  <p className="text-sm text-purple-700">
+                    Добавьте все фото накладных которые поступили, без письменного формата.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Input для фотографий */}
             <input
-              type="text"
-              value={formData.date}
-              readOnly
-              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
+              ref={nakladniyePhotoInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  addNakladniyePhotos([e.target.files[0]]);
+                }
+              }}
+              disabled={isLoading}
+              className="hidden"
+              name="nakladniye_photo"
+              id="nakladniye_photo"
             />
-          </div>
 
-          {/* Photos Section - ИСПРАВЛЕНО: Улучшенная загрузка фотографий */}
-          {/*<div className="mb-6">*/}
-          {/*  <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">*/}
-          {/*    <Camera size={16} className="text-purple-500" />*/}
-          {/*    Фотографии накладных **/}
-          {/*  </label>*/}
-          {/*  <p className="text-xs text-gray-600 mb-3">*/}
-          {/*    Добавьте фотографии накладных на принятый товар (до 10 фотографий)*/}
-          {/*  </p>*/}
-
-          {/*  /!* Fallback input для одиночной загрузки - ЕДИНСТВЕННАЯ ФОРМА *!/*/}
-          {/*  <input*/}
-          {/*    ref={singlePhotoInputRef}*/}
-          {/*    type="file"*/}
-          {/*    accept="image/jpeg,image/jpg,image/png,image/webp"*/}
-          {/*    onChange={(e) => {*/}
-          {/*      if (e.target.files && e.target.files[0]) {*/}
-          {/*        addPhotos([e.target.files[0]]);*/}
-          {/*      }*/}
-          {/*    }}*/}
-          {/*    disabled={isLoading}*/}
-          {/*    className="hidden"*/}
-          {/*    name="single_photo"*/}
-          {/*    id="single_photo"*/}
-          {/*  />*/}
-
-          {/*  /!* Единственная кнопка загрузки фотографий - увеличенная с дизайном основной кнопки *!/*/}
-          {/*  <button*/}
-          {/*    type="button"*/}
-          {/*    onClick={() => singlePhotoInputRef.current?.click()}*/}
-          {/*    disabled={isLoading || formData.photos.length >= 10}*/}
-          {/*    className={`w-full photo-upload-button ${*/}
-          {/*      validationErrors.photos */}
-          {/*        ? 'border-red-400 bg-red-50 hover:bg-red-100' */}
-          {/*        : formData.photos.length >= 10*/}
-          {/*          ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'*/}
-          {/*          : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'*/}
-          {/*    }`}*/}
-          {/*  >*/}
-          {/*    <div className="flex items-center justify-center gap-3">*/}
-          {/*      <Camera size={24} className="text-purple-600" />*/}
-          {/*      <div className="text-center">*/}
-          {/*        <div className="font-semibold text-purple-700 text-lg">*/}
-          {/*          {formData.photos.length >= 10*/}
-          {/*            ? 'Достигнут максимум (10 фото)'*/}
-          {/*            : 'Добавить по одной фотографии'*/}
-          {/*          }*/}
-          {/*        </div>*/}
-          {/*        <div className="text-sm text-purple-600">*/}
-          {/*          {formData.photos.length > 0*/}
-          {/*            ? `Загружено: ${formData.photos.length} из 10`*/}
-          {/*            : 'Нажмите для выбора фотографии'*/}
-          {/*          }*/}
-          {/*        </div>*/}
-          {/*      </div>*/}
-          {/*    </div>*/}
-          {/*  </button>*/}
-
-          {/*  /!* Показываем загруженные фотографии *!/*/}
-          {/*  {formData.photos.length > 0 && (*/}
-          {/*    <div className="mt-4 space-y-2">*/}
-          {/*      <h4 className="text-sm font-medium text-green-700 mb-2">*/}
-          {/*        ✅ Загруженные ����отографии ({formData.photos.length}):*/}
-          {/*      </h4>*/}
-          {/*      <div className="space-y-2">*/}
-          {/*        {formData.photos.map((photo, index) => (*/}
-          {/*          <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-3">*/}
-          {/*            <div className="flex items-start gap-3">*/}
-          {/*              <Image size={20} className="text-green-500 mt-0.5 flex-shrink-0" />*/}
-          {/*              <div className="flex-1 min-w-0">*/}
-          {/*                <p className="text-sm font-medium text-green-700 truncate mb-1">*/}
-          {/*                  📄 {photo.name}*/}
-          {/*                </p>*/}
-          {/*                <div className="flex items-center gap-4 text-xs text-green-600">*/}
-          {/*                  <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>*/}
-          {/*                  <span>🖼️ {photo.type}</span>*/}
-          {/*                </div>*/}
-          {/*              </div>*/}
-          {/*              <button*/}
-          {/*                type="button"*/}
-          {/*                onClick={() => handleDeletePhotoClick(index)}*/}
-          {/*                className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"*/}
-          {/*                disabled={isLoading}*/}
-          {/*              >*/}
-          {/*                <XCircle size={16} />*/}
-          {/*              </button>*/}
-          {/*            </div>*/}
-          {/*          </div>*/}
-          {/*        ))}*/}
-          {/*      </div>*/}
-          {/*    </div>*/}
-          {/*  )}*/}
-
-          {/*  /!* Сообщение об ошибке или подсказка - УЛУЧШЕНО *!/*/}
-          {/*  {formData.photos.length === 0 && (*/}
-          {/*    <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${*/}
-          {/*      validationErrors.photos */}
-          {/*        ? 'border-red-300 bg-red-50 text-red-600' */}
-          {/*        : 'border-gray-300 bg-gray-50 text-gray-500'*/}
-          {/*    }`}>*/}
-          {/*      <Camera size={32} className="mx-auto mb-3 opacity-50" />*/}
-          {/*      <p className="text-sm font-medium mb-1">*/}
-          {/*        {validationErrors.photos*/}
-          {/*          ? '❌ Необходимо добавить фотографии накладных'*/}
-          {/*          : '📸 Нажмите кнопку выше для добавления фотографий'*/}
-          {/*        }*/}
-          {/*      </p>*/}
-          {/*      <p className="text-xs text-gray-400 mb-2">*/}
-          {/*        Рекомендуется 5-10 четких фотографий накладных*/}
-          {/*      </p>*/}
-          {/*      <p className="text-xs text-amber-600">*/}
-          {/*        💡 Добавляйте фотографии по одной для стабильной работы*/}
-          {/*      </p>*/}
-          {/*    </div>*/}
-          {/*  )}*/}
-          {/*</div>*/}
-
-          {/* НОВОЕ: Секция дополнительных фото - показывается когда основных фото 10 */}
-          {formData.photos.length === 10 && (
-            <div className="mb-6">
-              <label className="flex items-center gap-2 text-sm font-medium mb-3 text-gray-700">
-                <Camera size={16} className="text-orange-500" />
-                📸 Дополнительные фотографии
-              </label>
-              <p className="text-xs text-orange-600 mb-3">
-                Если нужно еще больше фото - добавьте их сюда. Они отправятся автоматически вместе с основным отчетом.
-              </p>
-
-              {/* Input для дополнительных фото */}
-              <input
-                ref={additionalPhotoInputRef}
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    addAdditionalPhotos([e.target.files[0]]);
-                  }
-                }}
-                disabled={isLoading}
-                className="hidden"
-                name="additional_photo"
-                id="additional_photo"
-              />
-
-              {/* Кнопка для добавления дополнительных фото */}
-              <button
-                type="button"
-                onClick={() => additionalPhotoInputRef.current?.click()}
-                disabled={isLoading || additionalPhotos.length >= 10}
-                className={`w-full photo-upload-button ${
-                  additionalPhotos.length >= 10
-                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
-                    : 'border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <Camera size={24} className="text-orange-600" />
-                  <div className="text-center">
-                    <div className="font-semibold text-orange-700 text-lg">
-                      {additionalPhotos.length >= 10
-                        ? 'Достигнут максимум (10 фото)'
-                        : 'Добавить дополнительные фото'
-                      }
-                    </div>
-                    <div className="text-sm text-orange-600">
-                      {additionalPhotos.length > 0
-                        ? `Загружено: ${additionalPhotos.length} из 10`
-                        : 'Эти фото отправятся вместе с основным отчетом'
-                      }
-                    </div>
+            {/* Кнопка добавления фото */}
+            <button
+              type="button"
+              onClick={() => nakladniyePhotoInputRef.current?.click()}
+              disabled={isLoading}
+              className="w-full p-4 border-2 border-dashed border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <Camera size={24} className="text-purple-600" />
+                <div className="text-center">
+                  <div className="font-semibold text-purple-700 text-lg">
+                    Добавить фотографии накладных
+                  </div>
+                  <div className="text-sm text-purple-600">
+                    {formData.nakladniyePhotos.length > 0
+                      ? `Загружено: ${formData.nakladniyePhotos.length} фото`
+                      : 'Нажмите для выбора фотографий'
+                    }
                   </div>
                 </div>
-              </button>
+              </div>
+            </button>
 
-              {/* Показываем дополнительные фотографии */}
-              {additionalPhotos.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-sm font-medium text-orange-700 mb-2">
-                    📸 Дополнительные фотографии ({additionalPhotos.length}):
-                  </h4>
-                  <p className="text-xs text-orange-600 mb-2">
-                    ✅ Эти фото будут отправлены автоматически вместе с основным отчетом
-                  </p>
-                  <div className="space-y-2">
-                    {additionalPhotos.map((photo, index) => (
-                      <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                        <div className="flex items-start gap-3">
-                          <Image size={20} className="text-orange-500 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-orange-700 truncate mb-1">
-                              📄 {photo.name}
-                            </p>
-                            <div className="flex items-center gap-4 text-xs text-orange-600">
-                              <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>
-                              <span>🖼️ {photo.type}</span>
-                            </div>
+            {/* Показываем загруженные фотографии */}
+            {formData.nakladniyePhotos.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <h4 className="text-sm font-medium text-purple-700 mb-2">
+                  ✅ Загруженные фотографии ({formData.nakladniyePhotos.length}):
+                </h4>
+                <div className="space-y-2">
+                  {formData.nakladniyePhotos.map((photo, index) => (
+                    <div key={index} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <Image size={20} className="text-purple-500 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-purple-700 truncate mb-1">
+                            📄 {photo.name}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-purple-600">
+                            <span>📏 {(photo.size / 1024 / 1024).toFixed(2)} МБ</span>
+                            <span>🖼️ {photo.type}</span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAdditionalPhotoClick(index)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                            disabled={isLoading}
-                          >
-                            <XCircle size={16} />
-                          </button>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePhotoClick(index)}
+                          className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                          disabled={isLoading}
+                        >
+                          <XCircle size={16} />
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Kitchen Section */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-orange-600 mb-3">Поставщики</h3>
-            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
-            {formData.kitchen.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Наименование"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('kitchen', index, 'name', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`kitchen-name-${index}`}
-                  id={`kitchen-name-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="Количество"
-                  value={item.quantity}
-                  onChange={(e) => handleNumberInput(e, (value) =>
-                    handleArrayChange('kitchen', index, 'quantity', value)
-                  )}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`kitchen-quantity-${index}`}
-                  id={`kitchen-quantity-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="кг/шт"
-                  value={item.unit}
-                  onChange={(e) => handleArrayChange('kitchen', index, 'unit', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`kitchen-unit-${index}`}
-                  id={`kitchen-unit-${index}`}
-                />
-              </div>
-            ))}
-            <button
-              onClick={() => addArrayItem('kitchen')}
-              disabled={isLoading}
-              className="w-full p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-            >
-              <Plus size={16} />
-             добавить еще
-            </button>
-          </div>
-
-          {/* Bar Section */}
-          <div className="mb-6">
-            {/* Предупреждающий блок для перемещений */}
-            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg mb-4">
-              <div className="flex items-start gap-2">
-                <div className="text-amber-600 text-lg">⚠️</div>
-                <div>
-                  <p className="text-sm font-medium text-amber-800 mb-1">
-                    Внимание!
-                  </p>
-                  <p className="text-sm text-amber-700">
-                    Указывать информацию только если вы получили товар с другой точки!
-                  </p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-
-            <h3 className="text-lg font-semibold text-blue-600 mb-3">Перемещение с другой точки к вам</h3>
-            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (кг/шт)</p>
-            {formData.bar.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Наименование"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('bar', index, 'name', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`bar-name-${index}`}
-                  id={`bar-name-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="Количество"
-                  value={item.quantity}
-                  onChange={(e) => handleNumberInput(e, (value) =>
-                    handleArrayChange('bar', index, 'quantity', value)
-                  )}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`bar-quantity-${index}`}
-                  id={`bar-quantity-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="кг/шт"
-                  value={item.unit}
-                  onChange={(e) => handleArrayChange('bar', index, 'unit', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`bar-unit-${index}`}
-                  id={`bar-unit-${index}`}
-                />
-              </div>
-            ))}
-            <button
-              onClick={() => addArrayItem('bar')}
-              disabled={isLoading}
-              className="w-full p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-            >
-              <Plus size={16} />
-              добавить еще
-            </button>
-          </div>
-
-          {/* Packaging Section */}
-          <div className="mb-6">
-            {/* Предупреждающий блок для покупок */}
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mb-4">
-              <div className="flex items-start gap-2">
-                <div className="text-blue-600 text-lg">⚠️</div>
-                <div>
-                  <p className="text-sm font-medium text-blue-800 mb-2">
-                    Внимание! Указывать полную информацию.
-                  </p>
-                  <p className="text-sm text-blue-700 mb-2">Пример:</p>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Огурцы 3 кг</li>
-                    <li>• Майонез 10 пачек по 750 гр</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-semibold text-green-600 mb-3">Покупки с магазина</h3>
-            <p className="text-sm text-gray-600 mb-3">Наименования — количество — единица (пачки/шт)</p>
-            {formData.packaging.map((item, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2 mb-2">
-                <MemoizedInput
-                  type="text"
-                  placeholder="Наименование"
-                  value={item.name}
-                  onChange={(e) => handleArrayChange('packaging', index, 'name', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`packaging-name-${index}`}
-                  id={`packaging-name-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="Количество"
-                  value={item.quantity}
-                  onChange={(e) => handleNumberInput(e, (value) =>
-                    handleArrayChange('packaging', index, 'quantity', value)
-                  )}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`packaging-quantity-${index}`}
-                  id={`packaging-quantity-${index}`}
-                />
-                <MemoizedInput
-                  type="text"
-                  placeholder="пачки/шт"
-                  value={item.unit}
-                  onChange={(e) => handleArrayChange('packaging', index, 'unit', e.target.value)}
-                  disabled={isLoading}
-                  className="p-2 bg-white border border-gray-300 rounded-lg focus:border-green-500 focus:outline-none disabled:opacity-50 transition-colors text-sm"
-                  name={`packaging-unit-${index}`}
-                  id={`packaging-unit-${index}`}
-                />
-              </div>
-            ))}
-            <button
-              onClick={() => addArrayItem('packaging')}
-              disabled={isLoading}
-              className="w-full p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg"
-            >
-              <Plus size={16} />
-             добавить еще
-            </button>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -927,22 +774,7 @@ export const ReceivingForm = ({
         }}
         onConfirm={handleConfirmDeletePhoto}
         title="Удалить фотографию"
-        message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.photos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
-        confirmText="Удалить"
-        cancelText="Отмена"
-        type="danger"
-      />
-
-      {/* НОВОЕ: Модальное окно подтверждения удаления дополнительного фото */}
-      <ConfirmationModal
-        isOpen={showDeleteAdditionalPhotoModal}
-        onClose={() => {
-          setShowDeleteAdditionalPhotoModal(false);
-          setAdditionalPhotoToDelete(null);
-        }}
-        onConfirm={handleConfirmDeleteAdditionalPhoto}
-        title="Удалить дополнительную фотографию"
-        message={`Вы уверены, что хотите удалить дополнительную фотографию "${additionalPhotoToDelete !== null ? additionalPhotos[additionalPhotoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
+        message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.nakladniyePhotos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
         confirmText="Удалить"
         cancelText="Отмена"
         type="danger"

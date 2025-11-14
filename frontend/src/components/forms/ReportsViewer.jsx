@@ -227,30 +227,30 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 	const getImageUrl = (photoUrl) => {
 		if (!photoUrl) return null;
 
-		// Если URL уже полный (начинается с http), используем как есть
-		if (photoUrl.startsWith('http')) {
-			return photoUrl;
-		}
+		// Если URL уже полный (http/https) — возвращаем как есть
+		if (/^https?:\/\//i.test(photoUrl)) return photoUrl;
 
-		// Получаем базовый URL без /api
-		let baseUrl = '';
-		if (import.meta.env.VITE_API_BASE_URL) {
-			if (import.meta.env.VITE_API_BASE_URL === '/api') {
-				// Режим разработки - используем текущий хост
-				baseUrl = '';
+		// Нормализуем baseUrl
+		let baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+		if (baseUrl === '/api') baseUrl = '';
+		// Убираем хвосты /api и /uploads и конечный слэш
+		baseUrl = baseUrl.replace(/\/api$/, '').replace(/\/uploads$/, '');
+		if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+
+		// Нормализуем путь к файлу
+		let path = photoUrl || '';
+		if (!path.startsWith('/')) {
+			if (path.startsWith('uploads/')) {
+				path = `/${path}`; // -> /uploads/...
 			} else {
-				// Продакшн - используем полный URL без /api
-				baseUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
+				path = `/uploads/${path.replace(/^\/+/, '')}`; // -> /uploads/<name>
 			}
 		}
 
-		// Если URL уже начинается с /, это готовый путь
-		if (photoUrl.startsWith('/')) {
-			return `${baseUrl}${photoUrl}`;
-		}
+		// Устраняем возможное дублирование /uploads/uploads/
+		path = path.replace(/\/uploads\/uploads\//g, '/uploads/');
 
-		// Иначе это относительный путь, добавляем /uploads/
-		return `${baseUrl}/uploads/${photoUrl}`;
+		return `${baseUrl}${path}`;
 	};
 
 	// Компонент для отображения кассовых отчетов
@@ -592,24 +592,20 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				{/* Кухня */}
 				{report.kuxnya && report.kuxnya.length > 0 && (
 					<div className="border border-green-200 rounded-lg p-3 bg-green-50">
-						<h4 className="font-semibold text-green-800 mb-3 flex items-center">
+						<h4 className="font-semibold text-green-800 mb-1 flex items-center">
 							<span className="mr-2">🍳</span>
-							Поставщики ({report.kuxnya.length} поз.)
+							Пункт 1 и Пунтк 2. ({report.kuxnya.length} поз.)
 						</h4>
+						<p className="text-xs font-semibold text-green-700 mb-2">Основное:</p>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 							{report.kuxnya.map((item, index) => (
-								<div
-									key={index}
-									className="bg-white p-2 rounded border border-green-200"
-								>
+								<div key={index} className="bg-white p-2 rounded border border-green-200">
 									<div className="flex justify-between items-center">
 										<div className="flex-1">
 											<p className="font-medium text-sm text-gray-900">{item.name}</p>
 										</div>
 										<div className="text-right">
-											<p className="font-semibold text-green-700 text-sm">
-												{item.count} {item.unit}
-											</p>
+											<p className="font-semibold text-green-700 text-sm">{item.count} {item.unit}</p>
 										</div>
 									</div>
 								</div>
@@ -621,24 +617,19 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				{/* Бар */}
 				{report.bar && report.bar.length > 0 && (
 					<div className="border border-purple-200 rounded-lg p-3 bg-purple-50">
-						<h4 className="font-semibold text-purple-800 mb-3 flex items-center">
+						<h4 className="font-semibold text-purple-800 mb-1 flex items-center">
 							<span className="mr-2">🍹</span>
 							Перемещение с другой точки к вам ({report.bar.length} поз.)
 						</h4>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 							{report.bar.map((item, index) => (
-								<div
-									key={index}
-									className="bg-white p-2 rounded border border-purple-200"
-								>
+								<div key={index} className="bg-white p-2 rounded border border-purple-200">
 									<div className="flex justify-between items-center">
 										<div className="flex-1">
 											<p className="font-medium text-sm text-gray-900">{item.name}</p>
 										</div>
 										<div className="text-right">
-											<p className="font-semibold text-purple-700 text-sm">
-												{item.count} {item.unit}
-											</p>
+											<p className="font-semibold text-purple-700 text-sm">{item.count} {item.unit}</p>
 										</div>
 									</div>
 								</div>
@@ -672,6 +663,36 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 									</div>
 								</div>
 							))}
+						</div>
+					</div>
+				)}
+
+				{/* Фотографии накладных (если есть) */}
+				{report.photos_urls && report.photos_urls.length > 0 && (
+					<div className="mt-4 bg-gray-50 p-3 rounded-lg">
+						<p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1">📸 Фотографии накладных ({report.photos_urls.length})</p>
+						<div className={`grid gap-2 ${report.photos_urls.length > 1 ? 'grid-cols-3 md:grid-cols-4' : 'grid-cols-1'}`}>
+							{report.photos_urls.map((photo, idx) => {
+								const imageUrl = getImageUrl(photo);
+								return (
+									<div key={idx} className="flex justify-center">
+										{imageUrl ? (
+											<img
+												src={imageUrl}
+												alt={`Фото ${idx + 1}`}
+												className="max-w-full max-h-32 rounded cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+												onClick={() => window.open(imageUrl, '_blank')}
+												onError={(e) => { e.target.style.display = 'none'; if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block'; }}
+												onLoad={(e) => { e.target.style.display = 'block'; if (e.target.nextElementSibling) { e.target.nextElementSibling.style.display = 'none'; } }}
+											/>
+										) : null}
+										<div style={{ display: 'none' }} className="text-center p-4 bg-gray-100 rounded border border-gray-300">
+											<div className="text-gray-400 text-2xl mb-2">🖼️</div>
+											<p className="text-xs text-gray-500">Фото недоступно</p>
+										</div>
+									</div>
+								);
+							})}
 						</div>
 					</div>
 				)}
@@ -1267,7 +1288,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 					<div className="text-blue-400 text-6xl mb-4">🔍</div>
 					<h3 className="text-xl font-semibold text-gray-900 mb-2">Готов к поиску</h3>
 					<p className="text-gray-600 mb-4">
-						Настройте фильтры и нажмите кнопку "Показать отчеты" для загрузки данных
+						Настройте фильтры и нажмите кнопку «Показать отчеты» для загрузки данных
 					</p>
 					<div className="text-sm text-gray-500">
 						Выбрана категория:{' '}
@@ -1315,8 +1336,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 						<div className="text-yellow-500 text-6xl mb-4">📭</div>
 						<h3 className="text-xl font-semibold text-gray-900 mb-2">Отчеты не найдены</h3>
 						<p className="text-gray-600">
-							За указанный период не найдены отчетов в категории "
-							{selectedCategoryData?.name}"
+							За указанный период не найдено отчётов в категории «{selectedCategoryData?.name}»
 						</p>
 					</div>
 				</div>
@@ -1501,7 +1521,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 				</div>
 			</div>
 
-			{/* Модальное окно подтверждения удаления */}
+			{/* Модальное окно подтвержения удаления */}
 			{deleteModal.isOpen && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 					<div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">

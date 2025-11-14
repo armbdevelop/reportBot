@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 
@@ -59,6 +59,15 @@ class ReportOnGoodsCreate(BaseModel):
     )
     shift_type: str = Field(description="Тип смены")
     cashier_name: str = Field(description="ФИО кассира")
+    custom_date: Optional[datetime] = Field(
+        default=None,
+        description="Опциональная дата и время отчета"
+    )
+
+    kuxnya: List[KuxnyaJson] = Field(
+        default_factory=list,
+        description="Список товаров для кухни"
+    )
 
     bar: List[BarJson] = Field(
         default_factory=list,
@@ -94,12 +103,14 @@ class ReportOnGoodsResponse(BaseModel):
     """Ответ с данными созданного отчета приема товаров"""
     id: int = Field(description="Уникальный идентификатор отчета")
     location: str = Field(description="Название локации")
+    date: datetime = Field(description="Дата и время отчета")
 
     kuxnya: List[Dict[str, Any]] = Field(description="Список товаров для кухни")
     bar: List[Dict[str, Any]] = Field(description="Список товаров для бара")
     upakovki_xoz: List[Dict[str, Any]] = Field(description="Список упаковок и хозтоваров")
     shift_type: str = Field(description="Тип смены")
     cashier_name: str = Field(description="ФИО кассира")
+    photos_urls: Optional[List[str]] = Field(default=[], description="Список URL фотографий накладных")
 
     class Config:
         from_attributes = True

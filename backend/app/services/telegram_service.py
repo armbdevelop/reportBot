@@ -650,26 +650,54 @@ class TelegramService:
 
     def _format_goods_report_message(self, data: Dict[str, Any]) -> str:
         """Форматирует сообщение отчета приема товаров"""
+
+        # Получаем дату отчета из данных или используем текущую
+        user_date = data.get('date')
+        if user_date:
+            # Если date - это datetime объект
+            if hasattr(user_date, 'strftime'):
+                # Если есть timezone info, используем astimezone для корректного отображения
+                if user_date.tzinfo is not None:
+                    # Конвертируем в МСК если это не МСК
+                    msk_date = user_date.astimezone(ZoneInfo("Europe/Moscow"))
+                    formatted_date = msk_date.strftime('%d.%m.%Y %H:%M')
+                else:
+                    # Если timezone нет, просто форматируем
+                    formatted_date = user_date.strftime('%d.%m.%Y %H:%M')
+            # Если date - это строка
+            elif isinstance(user_date, str):
+                try:
+                    # Пытаемся парсить ISO формат
+                    parsed_date = datetime.fromisoformat(user_date.replace('Z', '+00:00'))
+                    msk_date = parsed_date.astimezone(ZoneInfo("Europe/Moscow"))
+                    formatted_date = msk_date.strftime('%d.%m.%Y %H:%M')
+                except:
+                    formatted_date = user_date
+            else:
+                formatted_date = str(user_date)
+        else:
+            # Fallback: используем текущую дату по МСК
+            formatted_date = datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')
+
         message = f"""📋 <b>ОТЧЁТ ПРИЁМА ТОВАРА</b>
 
 📍 <b>Локация:</b> {data.get('location', 'Не указана')}
-🕐 <b>Дата:</b> {datetime.now(ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Moscow")).strftime('%d.%m.%Y %H:%M')}
+🕐 <b>Дата:</b> {formatted_date}
 👤 <b>Кассир:</b> {data.get('cashier_name', 'Не указан')}
 📅 <b>Смена:</b> {'Утренняя' if data.get('shift_type') == 'morning' else 'Ночная'}
 """
 
-        # Кухня
+        # Кухня (Поставщики - Пункты 1 и 2)
         kuxnya = data.get('kuxnya', [])
         if kuxnya:
-            message += "🍳 <b>Поставщики:</b>\n"
+            message += "\n<b>Пункт 1 и Пунтк 2.</b>\n<b>Основное:</b>\n"
             for item in kuxnya:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)
                 unit = item.get('unit', 'шт')
-                message += f"• {name} — <b>{count} {unit}</b>\n"
-            message += "\n"
+                message += f"• {name} — <b>{count}</b>\n"
 
-        # Бар
+        # Бар (Напитки - Пункт 2)
         bar = data.get('bar', [])
         if bar:
             message += "🍹 <b>Перемещение с другой точки к вам:</b>\n"
@@ -678,17 +706,21 @@ class TelegramService:
                 count = item.get('count', 0)
                 unit = item.get('unit', 'шт')
                 message += f"• {name} — <b>{count} {unit}</b>\n"
-            message += "\n"
 
-        # Упаковки/хоз
+        # Упаковки/хоз (Покупки с магазина - Пункт 4)
         upakovki = data.get('upakovki_xoz', [])
         if upakovki:
-            message += "📦 <b>Покупки с магазина:</b>\n"
+            message += "\n🛒 <b>Покупки с магазина:</b>\n"
             for item in upakovki:
                 name = item.get('name', 'Не указано')
                 count = item.get('count', 0)
                 unit = item.get('unit', 'шт')
                 message += f"• {name} — <b>{count} {unit}</b>\n"
+
+        # Информация о фотографиях
+        photos_count = len(data.get('photos_urls', []))
+        if photos_count > 0:
+            message += f"\n📸 <b>Фотографий накладных:</b> {photos_count}\n"
 
         return message
 
@@ -1060,4 +1092,3 @@ class TelegramService:
         except Exception as e:
             print(f"⚠️  Ошибка отправки фотографий в Telegram: {str(e)}")
             return False
-

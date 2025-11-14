@@ -18,3 +18,7 @@ class ReportOnGoods(Base):
 
     # Упаковки/хоз
     upakovki_xoz = Column(JSON, nullable=False, default=list)
+
+    # Фотографии накладных (список URL)
+    photos_urls = Column(JSON, nullable=True, default=list)
+

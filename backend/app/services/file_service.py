@@ -1,4 +1,3 @@
-import base64
 import os
 import uuid
 from pathlib import Path
@@ -53,6 +52,33 @@ class FileService:
                 raise e
             raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла: {str(e)}")
 
+    def save_file_bytes(self, content: bytes, original_filename: str, subfolder: str = "report_on_goods") -> str:
+        """
+        Сохраняет файл из байтов в указанную поддиректорию uploads и возвращает абсолютный путь к файлу.
+        """
+        try:
+            allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+            file_ext = Path(original_filename).suffix.lower() or '.jpg'
+
+            if file_ext not in allowed_extensions:
+                # допускаем сохранение, но по безопасности можно выбросить ошибку
+                raise HTTPException(status_code=400, detail=f"Недопустимый тип файла. Разрешены: {', '.join(allowed_extensions)}")
+
+            folder = self.upload_folder / subfolder
+            folder.mkdir(parents=True, exist_ok=True)
+
+            file_name = f"{uuid.uuid4()}{file_ext}"
+            file_path = folder / file_name
+
+            with open(file_path, 'wb') as f:
+                f.write(content)
+
+            return str(file_path)
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла: {str(e)}")
+
     def get_shift_report_photo_url(self, file_path: str) -> str:
         """
         Возвращает URL для доступа к фото отчета.
@@ -63,6 +89,17 @@ class FileService:
         # Возвращаем относительный путь для API
         relative_path = Path(file_path).relative_to(self.upload_folder)
         return f"/uploads/{relative_path}"
+
+    def get_file_url(self, file_path: str) -> str:
+        """
+        Возвращает относительный URL для доступа к файлу внутри uploads.
+        """
+        try:
+            relative_path = Path(file_path).relative_to(self.upload_folder)
+            return f"/uploads/{relative_path}"
+        except Exception:
+            # Если не удалось вычислить относительный путь, возвращаем исходную строку
+            return file_path
 
     def delete_shift_report_photo(self, file_path: str) -> bool:
         """

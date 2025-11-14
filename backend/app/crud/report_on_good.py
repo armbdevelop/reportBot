@@ -6,11 +6,13 @@ from sqlalchemy import select
 from app.schemas import ReportOnGoodsCreate
 from app.models import ReportOnGoods
 from app.services import TelegramService
+from app.services.file_service import FileService
 from datetime import datetime
 
 class ReportOnGoodCRUD:
     def __init__(self):
         self.telegram_service = TelegramService()
+        self.file_service = FileService()
 
     async def create_report_on_good(
             self,
@@ -52,6 +54,20 @@ class ReportOnGoodCRUD:
         )
 
         db.add(db_report)
+        # Сохраняем фотографии на диск и обновляем поле photos_urls
+        photos_urls = []
+        try:
+            if photos:
+                for p in photos:
+                    # p ожидается как dict с keys: filename, content, content_type
+                    saved_path = self.file_service.save_file_bytes(p['content'], p.get('filename', 'photo.jpg'), subfolder='report_on_goods')
+                    file_url = self.file_service.get_file_url(saved_path)
+                    photos_urls.append(file_url)
+                db_report.photos_urls = photos_urls
+
+        except Exception as e:
+            print(f"⚠️ Ошибка сохранения фото отчёта приема товаров: {e}")
+
         await db.commit()
         await db.refresh(db_report)
 
@@ -64,6 +80,7 @@ class ReportOnGoodCRUD:
                 'kuxnya': db_report.kuxnya,
                 'bar': db_report.bar,
                 'upakovki_xoz': db_report.upakovki_xoz,
+                'photos_urls': photos_urls,
             }
 
             await self.telegram_service.send_goods_report(report_dict, photos=photos)
@@ -78,4 +95,3 @@ class ReportOnGoodCRUD:
             return await self.telegram_service.send_photos_to_location(location=location, photos=photos)
         except Exception as e:
             raise HTTPException(status_code=401, detail=str(e))
-
