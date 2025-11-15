@@ -1,4 +1,4 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,3 +95,28 @@ class ReportOnGoodCRUD:
             return await self.telegram_service.send_photos_to_location(location=location, photos=photos)
         except Exception as e:
             raise HTTPException(status_code=401, detail=str(e))
+
+    async def get(self, db: AsyncSession, id: int) -> Optional[ReportOnGoods]:
+        """Получение отчета приема товаров по ID"""
+        try:
+            stmt = select(ReportOnGoods).where(ReportOnGoods.id == id)
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            print(f"❌ Ошибка получения отчета приема товара {id}: {str(e)}")
+            return None
+
+    async def remove(self, db: AsyncSession, id: int) -> bool:
+        """Удаление отчета приема товаров по ID"""
+        try:
+            stmt = select(ReportOnGoods).where(ReportOnGoods.id == id)
+            result = await db.execute(stmt)
+            report = result.scalar_one_or_none()
+
+            if report:
+                await db.delete(report)
+                return True
+            return False
+        except Exception as e:
+            print(f"❌ Ошибка удаления отчета приема товара {id}: {str(e)}")
+            return False
