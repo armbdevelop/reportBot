@@ -57,8 +57,8 @@ export const ReceivingForm = ({
     peremesheniye: Array(2).fill(null).map(() => ({ name: '', quantity: '', unit: '' })),
     // Пункт 4 - Покупки с магазина (2 блока + кнопка добавить)
     pokupki: Array(2).fill(null).map(() => ({ name: '', quantity: '', unit: '' })),
-    // Пункт 5 - Фотографии накладных
-    nakladniyePhotos: []
+    // photos (бывш. nakladniyePhotos)
+    photos: []
   });
 
   const [showClearModal, setShowClearModal] = useState(false);
@@ -66,7 +66,7 @@ export const ReceivingForm = ({
   const [photoToDelete, setPhotoToDelete] = useState(null);
   const [useCustomDateTime, setUseCustomDateTime] = useState(false);
   const { handleNumberInput } = useFormData(validationErrors, setValidationErrors);
-  const nakladniyePhotoInputRef = useRef(null);
+  const nakladniyePhotoInputRef = useRef(null); // оставляем ref, можно переименовать позже
 
   // Загружаем черновик при инициализации
   useEffect(() => {
@@ -85,7 +85,7 @@ export const ReceivingForm = ({
     const hasPeremeshenieyeItems = data.peremesheniye?.some(item => item.name || item.quantity || item.unit);
     const hasPokupkiItems = data.pokupki?.some(item => item.name || item.quantity || item.unit);
 
-    if (data.location || data.nakladniyePhotos?.length > 0 ||
+    if (data.location || data.photos?.length > 0 ||
         hasPunkt1Items || hasPunkt2Items || hasPeremeshenieyeItems || hasPokupkiItems) {
       await saveDraft('receiving', data);
     }
@@ -123,52 +123,27 @@ export const ReceivingForm = ({
   }, []);
 
   // Функция для добавления фотографий накладных
-  const addNakladniyePhotos = useCallback((files) => {
+  const addNakladniyePhotos = useCallback((files) => { // можно переименоват�� позже
     const fileArray = Array.isArray(files) ? files : Array.from(files || []);
-
+    const scrollPosition = window.scrollY;
     const validFiles = fileArray.filter(file => {
-      const validTypes = [
-        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
-        'image/bmp', 'image/webp', 'image/heic', 'image/heif'
-      ];
+      const validTypes = [ 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/heic', 'image/heif' ];
       const maxSize = 50 * 1024 * 1024;
-
       const fileName = file.name.toLowerCase();
-      const hasValidExtension = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif']
-        .some(ext => fileName.endsWith(ext));
-
+      const hasValidExtension = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif'].some(ext => fileName.endsWith(ext));
       return (validTypes.includes(file.type) || hasValidExtension) && file.size <= maxSize;
     });
-
-    if (validFiles.length !== fileArray.length) {
-      alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
+    if (validFiles.length !== fileArray.length) alert('Некоторые файлы были пропущены. Разрешены только изображения до 50МБ.');
+    setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
+    if (nakladniyePhotoInputRef.current) nakladniyePhotoInputRef.current.value = '';
+    if (validationErrors.photos) {
+      setValidationErrors(prev => { const ne = { ...prev }; delete ne.photos; return ne; });
     }
-
-    setFormData(prev => {
-      const newPhotos = [...prev.nakladniyePhotos, ...validFiles];
-      return { ...prev, nakladniyePhotos: newPhotos };
-    });
-
-    // Очищаем input после загрузки
-    if (nakladniyePhotoInputRef.current) {
-      nakladniyePhotoInputRef.current.value = '';
-    }
-
-    // Очищаем ошибку валидации при добавлении фото
-    if (validationErrors.nakladniyePhotos) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.nakladniyePhotos;
-        return newErrors;
-      });
-    }
+    requestAnimationFrame(() => { window.scrollTo(0, scrollPosition); });
   }, [validationErrors, setValidationErrors]);
 
   const removeNakladniyePhoto = useCallback((index) => {
-    setFormData(prev => {
-      const newPhotos = prev.nakladniyePhotos.filter((_, i) => i !== index);
-      return { ...prev, nakladniyePhotos: newPhotos };
-    });
+    setFormData(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }));
     setShowDeletePhotoModal(false);
     setPhotoToDelete(null);
   }, []);
@@ -240,7 +215,7 @@ export const ReceivingForm = ({
       }
 
       // Фотографии накладных
-      formData.nakladniyePhotos.forEach((photo) => {
+      formData.photos.forEach((photo) => {
         apiFormData.append('photos', photo);
       });
 
@@ -305,7 +280,7 @@ export const ReceivingForm = ({
     } finally {
       setIsLoading(false);
     }
-  }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading]);
+  }, [formData, apiService, showNotification, showValidationErrors, clearCurrentDraft, setIsLoading, useCustomDateTime]);
 
   return (
     <>
@@ -637,20 +612,21 @@ export const ReceivingForm = ({
                 <div className="text-purple-600 text-lg">📸</div>
                 <div>
                   <p className="text-sm font-medium text-purple-800 mb-1">
-                    Фотографии всех накладных (обязательный)
+                    Фотографии всех накладных (обязательно)
                   </p>
                   <p className="text-sm text-purple-700">
-                    Добавьте все фото накладных которые поступили, без письменного формата.
+                    Добавьте все фото накладных на принятый товар. Рекомендуется 5–10 четких фотографий.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Input для фотографий */}
+            {/* Скрытый input */}
             <input
               ref={nakladniyePhotoInputRef}
               type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+              accept="image/*"
+              capture="environment"
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   addNakladniyePhotos([e.target.files[0]]);
@@ -667,32 +643,35 @@ export const ReceivingForm = ({
               type="button"
               onClick={() => nakladniyePhotoInputRef.current?.click()}
               disabled={isLoading}
-              className="w-full p-4 border-2 border-dashed border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 rounded-lg transition-colors disabled:opacity-50"
+              className={`w-full photo-upload-button ${
+                validationErrors.photos
+                  ? 'border-red-400 bg-red-50 hover:bg-red-100'
+                  : 'border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400'
+              }`}
             >
               <div className="flex items-center justify-center gap-3">
                 <Camera size={24} className="text-purple-600" />
                 <div className="text-center">
                   <div className="font-semibold text-purple-700 text-lg">
-                    Добавить фотографии накладных
+                    {formData.photos.length > 0
+                      ? `Добавить ещё фото (текущих: ${formData.photos.length})`
+                      : 'Добавить фото накладных'}
                   </div>
-                  <div className="text-sm text-purple-600">
-                    {formData.nakladniyePhotos.length > 0
-                      ? `Загружено: ${formData.nakladniyePhotos.length} фото`
-                      : 'Нажмите для выбора фотографий'
-                    }
+                  <div className="text-xs text-purple-600 mt-1">
+                    Загружайте по одному файлу для стабильной работы
                   </div>
                 </div>
               </div>
             </button>
 
-            {/* Показываем загруженные фотографии */}
-            {formData.nakladniyePhotos.length > 0 && (
+            {/* Список загруженных фото */}
+            {formData.photos.length > 0 && (
               <div className="mt-4 space-y-2">
                 <h4 className="text-sm font-medium text-purple-700 mb-2">
-                  ✅ Загруженные фотографии ({formData.nakladniyePhotos.length}):
+                  ✅ Загруженные фотографии ({formData.photos.length}):
                 </h4>
                 <div className="space-y-2">
-                  {formData.nakladniyePhotos.map((photo, index) => (
+                  {formData.photos.map((photo, index) => (
                     <div key={index} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                       <div className="flex items-start gap-3">
                         <Image size={20} className="text-purple-500 mt-0.5 flex-shrink-0" />
@@ -717,6 +696,28 @@ export const ReceivingForm = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Подсказка / ошибка если фото нет */}
+            {formData.photos.length === 0 && (
+              <div className={`text-center p-4 rounded-lg border-2 border-dashed transition-colors mt-4 ${
+                validationErrors.photos
+                  ? 'border-red-300 bg-red-50 text-red-600'
+                  : 'border-gray-300 bg-gray-50 text-gray-500'
+              }`}>
+                <Camera size={32} className="mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium mb-1">
+                  {validationErrors.photos
+                    ? '❌ Необходимо добавить фотографии накладных'
+                    : '📸 Нажмите кнопку выше для добавления фотографий'}
+                </p>
+                <p className="text-xs text-gray-400 mb-2">
+                  Рекомендуется 5–10 четких фотографий накладных
+                </p>
+                <p className="text-xs text-amber-600">
+                  💡 Добавляйте фотографии по одной для стабильной работы
+                </p>
               </div>
             )}
           </div>
@@ -773,7 +774,7 @@ export const ReceivingForm = ({
         }}
         onConfirm={handleConfirmDeletePhoto}
         title="Удалить фотографию"
-        message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.nakladniyePhotos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
+        message={`Вы уверены, что хотите удалить фотографию "${photoToDelete !== null ? formData.photos[photoToDelete]?.name : ''}"? Это действие нельзя отменить.`}
         confirmText="Удалить"
         cancelText="Отмена"
         type="danger"
