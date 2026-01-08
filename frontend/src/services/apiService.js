@@ -303,7 +303,7 @@ export const apiService = {
   async deleteShiftReport(reportId) {
     console.log(`🗑️ Удаляем кассовый отчет ${reportId}...`);
     try {
-      const response = await fetch(`${API_BASE_URL}/shift-reports/shift-reports/${reportId}`, {
+      const response = await fetch(`${API_BASE_URL}/shift-reports/${reportId}`, {
         method: 'DELETE'
       });
       return await handleResponse(response, 'deleteShiftReport');

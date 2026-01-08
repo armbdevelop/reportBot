@@ -452,3 +452,39 @@ async def get_shift_report(
             detail="Ошибка при удалении отчета"
         )
 
+
+@router.delete(
+    "/{report_id}",
+    summary="Удалить отчет смены по ID",
+    description="Удаляет отчет смены по указанному ID")
+async def delete_shift_report(
+    report_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Удаляет отчет смены по ID.
+    """
+    try:
+        report = await db.get(ShiftReport, report_id)
+
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Отчет не найден"
+            )
+
+        # Удаляем отчет из БД
+        await shift_report_crud.remove(db, id=report_id)
+        await db.commit()
+
+        return {"message": "Отчет успешно удален", "deleted_id": report_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Ошибка при удалении отчета {report_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при удалении отчета"
+        )
