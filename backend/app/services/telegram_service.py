@@ -396,36 +396,56 @@ class TelegramService:
             # Форматируем сообщение
             message = self._format_goods_report_message(report_data)
 
-            success = False
+            # Если фотографий нет - отправляем только текстовое сообщение
+            if not photos:
+                success = await self._send_message(self.chat_id, message, topic_id)
 
-            # Если есть фотографии, отправляем их с сообщением
-            if photos and len(photos) > 0:
-                # Если одна фотография - отправляем как фото с подписью
-                if len(photos) == 1:
-                    success = await self._send_photo_with_caption_from_bytes(
-                        message,
-                        photos[0]['content'],
-                        photos[0]['filename'],
+                if success:
+                    print(f"✅ Отчет приема товаров отправлен в Telegram для локации: {report_data.get('location')}")
+                else:
+                    print(
+                        f"⚠️  Отчет приема товаров создан, но не отправлен в Telegram для локации: {report_data.get('location')}")
+
+                return success
+
+            continuation_caption = (
+                "📎 <b>Продолжение фото</b>\n"
+                "(относится к посту выше)"
+            )
+
+            overall_success = True
+
+            # Telegram ограничивает sendMediaGroup максимум 10 медиа.
+            # Поэтому отправляем фото пачками по 10.
+            for batch_index in range(0, len(photos), 10):
+                batch = photos[batch_index:batch_index + 10]
+                is_first_batch = batch_index == 0
+                batch_caption = message if is_first_batch else continuation_caption
+
+                if len(batch) == 1:
+                    ok = await self._send_photo_with_caption_from_bytes(
+                        batch_caption,
+                        batch[0]['content'],
+                        batch[0].get('filename', 'photo.jpg'),
                         topic_id
                     )
                 else:
-                    # Если несколько фотографий - отправляем как медиа-группу
-                    success = await self._send_media_group_with_caption(
-                        message,
-                        photos,
+                    ok = await self._send_media_group_with_caption(
+                        batch_caption,
+                        batch,
                         topic_id
                     )
-            else:
-                # Если фотографий нет - отправляем только текстовое сообщение
-                success = await self._send_message(self.chat_id, message, topic_id)
 
-            if success:
+                if not ok:
+                    overall_success = False
+
+            if overall_success:
                 print(f"✅ Отчет приема товаров отправлен в Telegram для локации: {report_data.get('location')}")
             else:
                 print(
                     f"⚠️  Отчет приема товаров создан, но не отправлен в Telegram для локации: {report_data.get('location')}")
 
-            return success
+            return overall_success
 
         except Exception as e:
             print(f"⚠️  Отчет приема товаров создан, но ошибка отправки в Telegram: {str(e)}")
