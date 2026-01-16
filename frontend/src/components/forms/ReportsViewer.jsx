@@ -114,7 +114,7 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 		isDeleting: false,
 	});
 
-	const ITEMS_PER_PAGE = 30;
+	const ITEMS_PER_PAGE = 10;
 
 	// Мемоизируем текущую категорию для предотвращения лишних вычислений
 	const currentCategory = useMemo(() => {
