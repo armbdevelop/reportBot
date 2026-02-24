@@ -221,7 +221,7 @@ export const ReceivingForm = ({
 
       // Пункт 1 - Основное (кухня)
       const punkt1Items = formData.punkt1
-        .filter(item => item.quantity)
+        .filter(item => item.quantity && parseFloat(item.quantity) > 0)
         .map(item => ({
           name: item.name,
           unit: item.unit,
@@ -230,7 +230,7 @@ export const ReceivingForm = ({
 
       // Пункт 2 - Напитки (бар)
       const punkt2Items = formData.punkt2
-        .filter(item => item.quantity)
+        .filter(item => item.quantity && parseFloat(item.quantity) > 0)
         .map(item => ({
           name: item.name,
           unit: item.unit,
@@ -245,7 +245,7 @@ export const ReceivingForm = ({
 
       // Пункт 3 - Перемещение с других точек (отправляем в bar_json)
       const peremeshenieyeItems = formData.peremesheniye
-        .filter(item => item.name && item.quantity && item.unit)
+        .filter(item => item.name && item.quantity && parseFloat(item.quantity) > 0 && item.unit)
         .map(item => ({
           name: item.name,
           unit: item.unit,
@@ -258,7 +258,7 @@ export const ReceivingForm = ({
 
       // Пункт 4 - Покупки с магазина (отправляем в upakovki_json)
       const pokupkiItems = formData.pokupki
-        .filter(item => item.name && item.quantity && item.unit)
+        .filter(item => item.name && item.quantity && parseFloat(item.quantity) > 0 && item.unit)
         .map(item => ({
           name: item.name,
           unit: item.unit,
