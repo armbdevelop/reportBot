@@ -12,7 +12,8 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 from app.core.database import DatabaseHelper
 
-# Настройка логирования для очистки
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 cleanup_logger = logging.getLogger("cleanup")
 cleanup_logger.setLevel(logging.INFO)
 
