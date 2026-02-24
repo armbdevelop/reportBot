@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class KuxnyaJson(BaseModel):
     name: str = Field(..., description="Наименование товара", example="Мука пшеничная")
-    count: int = Field(..., gt=0, description="Количество", example=5)
+    count: float = Field(..., gt=0, description="Количество", example=5)
     unit: str = Field(..., description="Единица измерения", example="кг")
 
     class Config:
@@ -20,7 +20,7 @@ class KuxnyaJson(BaseModel):
 
 class BarJson(BaseModel):
     name: str = Field(..., description="Наименование напитка", example="Кола 0.5л")
-    count: int = Field(..., gt=0, description="Количество", example=24)
+    count: float = Field(..., gt=0, description="Количество", example=24)
     unit: str = Field(..., description="Единица измерения", example="шт")
 
     class Config:
@@ -35,7 +35,7 @@ class BarJson(BaseModel):
 
 class UpakovkyJson(BaseModel):
     name: str = Field(..., description="Наименование упаковки/хозтовара", example="Стаканы пластиковые")
-    count: int = Field(..., gt=0, description="Количество", example=100)
+    count: float = Field(..., gt=0, description="Количество", example=100)
     unit: str = Field(..., description="Единица измерения", example="шт")
 
     class Config:

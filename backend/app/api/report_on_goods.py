@@ -1,4 +1,5 @@
 from datetime import datetime, date
+import logging
 
 from fastapi import APIRouter, status, Form, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,8 @@ from typing import Optional, List
 import json
 from app.core import get_db
 from app.models import ReportOnGoods
+
+logger = logging.getLogger("report_on_goods")
 
 # Коды локаций -> полные адреса
 LOCATION_MAP = {
@@ -170,6 +173,13 @@ async def create_report_on_goods(
     - `count`: количество штук (обязательно, > 0)
     - `unit`: единица измерения (обязательно)
     """
+    logger.info(
+        f"[CREATE] Входящий запрос: location={location}, shift_type={shift_type}, "
+        f"cashier_name={cashier_name}, custom_date={custom_date}, "
+        f"kuxnya_json={kuxnya_json}, bar_json={bar_json}, upakovki_json={upakovki_json}, "
+        f"photos_count={len(photos) if photos else 0}"
+    )
+
     try:
         # Парсим товары для кухни
         kuxnya_list = []
@@ -197,7 +207,7 @@ async def create_report_on_goods(
 
                     kuxnya_list.append(KuxnyaJson(
                         name=str(item['name']),
-                        count=int(item['count']),
+                        count=float(item['count']),
                         unit=str(item['unit'])
                     ))
 
@@ -238,7 +248,7 @@ async def create_report_on_goods(
 
                     bar_list.append(BarJson(
                         name=str(item['name']),
-                        count=int(item['count']),
+                        count=float(item['count']),
                         unit=str(item['unit'])
                     ))
 
@@ -279,7 +289,7 @@ async def create_report_on_goods(
 
                     upakovky_list.append(UpakovkyJson(
                         name=str(item['name']),
-                        count=int(item['count']),
+                        count=float(item['count']),
                         unit=str(item['unit'])
                     ))
 
@@ -327,14 +337,33 @@ async def create_report_on_goods(
                     "content_type": photo.content_type
                 })
 
-        return await repg.create_report_on_good(db, report_on_goods_data, photos=photos_data)
+        logger.info(
+            f"[CREATE] Данные подготовлены: kuxnya={len(kuxnya_list)} шт, "
+            f"bar={len(bar_list)} шт, upakovki={len(upakovky_list)} шт, "
+            f"photos={len(photos_data)} шт"
+        )
+
+        result = await repg.create_report_on_good(db, report_on_goods_data, photos=photos_data)
+
+        logger.info(f"[CREATE] Отчет успешно создан: id={result.id}, location={result.location}")
+        return result
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning(f"[CREATE] Ошибка валидации данных: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Ошибка при создании отчета приема товаров: {str(e)}',
+            detail=f'Ошибка валидации данных: {str(e)}',
+        )
+    except Exception as e:
+        logger.error(
+            f"[CREATE] Непредвиденная ошибка: {type(e).__name__}: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Внутренняя ошибка сервера при создании отчета: {str(e)}',
         )
 
 

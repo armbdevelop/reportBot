@@ -20,11 +20,15 @@ class ReportOnGoodCRUD:
             report_data: ReportOnGoodsCreate,
             photos: List[Dict[str, Any]]
     ):
+        def smart_count(val):
+            """1.0 -> 1, 0.45 -> 0.45"""
+            return int(val) if val == int(val) else val
+
         kuxnya_dict = []
         for kux in report_data.kuxnya:
             kuxnya_dict.append({
                 'name': kux.name,
-                'count': int(kux.count),
+                'count': smart_count(kux.count),
                 'unit': kux.unit,
             })
 
@@ -32,7 +36,7 @@ class ReportOnGoodCRUD:
         for bar in report_data.bar:
             bar_dict.append({
                 'name': bar.name,
-                'count': int(bar.count),
+                'count': smart_count(bar.count),
                 'unit': bar.unit,
             })
 
@@ -40,7 +44,7 @@ class ReportOnGoodCRUD:
         for upakovki in report_data.upakovki:
             upakovki_dict.append({
                 'name': upakovki.name,
-                'count': int(upakovki.count),
+                'count': smart_count(upakovki.count),
                 'unit': upakovki.unit,
             })
 

@@ -225,7 +225,7 @@ export const ReceivingForm = ({
         .map(item => ({
           name: item.name,
           unit: item.unit,
-          count: parseInt(item.quantity)
+          count: parseFloat(item.quantity)
         }));
 
       // Пункт 2 - Напитки (бар)
@@ -234,7 +234,7 @@ export const ReceivingForm = ({
         .map(item => ({
           name: item.name,
           unit: item.unit,
-          count: parseInt(item.quantity)
+          count: parseFloat(item.quantity)
         }));
 
       // Объединяем пункты 1 и 2 для отправки в kuxnya_json
@@ -249,7 +249,7 @@ export const ReceivingForm = ({
         .map(item => ({
           name: item.name,
           unit: item.unit,
-          count: parseInt(item.quantity)
+          count: parseFloat(item.quantity)
         }));
 
       if (peremeshenieyeItems.length > 0) {
@@ -262,7 +262,7 @@ export const ReceivingForm = ({
         .map(item => ({
           name: item.name,
           unit: item.unit,
-          count: parseInt(item.quantity)
+          count: parseFloat(item.quantity)
         }));
 
       if (pokupkiItems.length > 0) {
