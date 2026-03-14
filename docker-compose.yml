@@ -29,6 +29,7 @@ services:
       - UVICORN_RELOAD=true
     depends_on:
       - db
+    restart: always
 
   frontend:
     build:
@@ -38,6 +39,7 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    restart: always
 
 volumes:
   postgres_data:
