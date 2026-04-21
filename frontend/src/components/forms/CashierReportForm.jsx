@@ -35,11 +35,11 @@ export const CashierReportForm = ({
       totalRevenue: '',
       returns: '',
       acquiring: '',
+      yandexPayQr: '',
       qrCode: '',
       onlineApp: '',
       yandexEda: '',
-      yandexEdaNoSystem: '',
-      primehill: ''
+      yandexEdaNoSystem: ''
     },
     factCash: '',
     photo: null,
@@ -179,11 +179,11 @@ export const CashierReportForm = ({
 
     // ИСПРАВЛЕНО: Итого эквайринг = все поля кроме общей выручки и возвратов (включая новые поля)
     const totalAcquiring = (parseFloat(formData.iikoData.acquiring) || 0) +
+                          (parseFloat(formData.iikoData.yandexPayQr) || 0) +
                           (parseFloat(formData.iikoData.qrCode) || 0) +
                           (parseFloat(formData.iikoData.onlineApp) || 0) +
                           (parseFloat(formData.iikoData.yandexEda) || 0) +
-                          (parseFloat(formData.iikoData.yandexEdaNoSystem) || 0) +
-                          (parseFloat(formData.iikoData.primehill) || 0);
+                          (parseFloat(formData.iikoData.yandexEdaNoSystem) || 0);
 
     // ИСПРАВЛЕНО: ФОРМУЛА ПО ТЗ: (общая выручка) - (возвраты) + (внесения) - (итоговый расход) - (итого эквайринг)
     const totalRevenue = parseFloat(formData.iikoData.totalRevenue) || 0;
@@ -263,11 +263,11 @@ export const CashierReportForm = ({
       apiFormData.append('total_revenue', parseFloat(formData.iikoData.totalRevenue) || 0);
       apiFormData.append('returns', parseFloat(formData.iikoData.returns) || 0);
       apiFormData.append('acquiring', parseFloat(formData.iikoData.acquiring) || 0);
+      apiFormData.append('yandex_pay_qr', parseFloat(formData.iikoData.yandexPayQr) || 0);
       apiFormData.append('qr_code', parseFloat(formData.iikoData.qrCode) || 0);
       apiFormData.append('online_app', parseFloat(formData.iikoData.onlineApp) || 0);
       apiFormData.append('yandex_food', parseFloat(formData.iikoData.yandexEda) || 0);
       apiFormData.append('yandex_food_no_system', parseFloat(formData.iikoData.yandexEdaNoSystem) || 0);
-      apiFormData.append('primehill', parseFloat(formData.iikoData.primehill) || 0);
 
       // ИСПРАВЛЕНО: Отправляем фактическую сумму наличных
       apiFormData.append('fact_cash', parseFloat(formData.factCash) || 0);
@@ -698,10 +698,25 @@ export const CashierReportForm = ({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1 text-gray-700">*QR код — не работает терминал (ТБанк):</label>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*QR код от Яндекс.Пэй:</label>
                 <MemoizedInput
                   type="text"
-                  placeholder="QR-код"
+                  placeholder="QR код от Яндекс.Пэй"
+                  value={formData.iikoData.yandexPayQr}
+                  onChange={(e) => handleNumberInput(e, (value) =>
+                    handleInputChange(`iikoData.yandexPayQr`, value)
+                  )}
+                  disabled={isLoading}
+                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
+                  name="iiko-yandexPayQr"
+                  id="iiko-yandexPayQr"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1 text-gray-700">*Не работает терминал (QR с телеграмм):</label>
+                <MemoizedInput
+                  type="text"
+                  placeholder="Не работает терминал (QR с телеграмм)"
                   value={formData.iikoData.qrCode}
                   onChange={(e) => handleNumberInput(e, (value) =>
                     handleInputChange(`iikoData.qrCode`, value)
@@ -756,21 +771,6 @@ export const CashierReportForm = ({
                   className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
                   name="iiko-yandexEdaNoSystem"
                   id="iiko-yandexEdaNoSystem"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1 text-gray-700">*Primehill:</label>
-                <MemoizedInput
-                  type="text"
-                  placeholder="Primehill"
-                  value={formData.iikoData.primehill}
-                  onChange={(e) => handleNumberInput(e, (value) =>
-                    handleInputChange(`iikoData.primehill`, value)
-                  )}
-                  disabled={isLoading}
-                  className="w-full p-3 bg-white border rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors border-gray-300"
-                  name="iiko-primehill"
-                  id="iiko-primehill"
                 />
               </div>
             </div>

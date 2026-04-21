@@ -79,11 +79,11 @@ class ShiftReportCRUD:
                 income_entries=report_data.income_entries,
                 expense_entries=report_data.expense_entries,
                 acquiring=report_data.acquiring,
+                yandex_pay_qr=report_data.yandex_pay_qr,
                 qr_code=report_data.qr_code,
                 online_app=report_data.online_app,
                 yandex_food=report_data.yandex_food,
-                yandex_food_no_system=report_data.yandex_food_no_system,  # НОВОЕ ПОЛЕ
-                primehill=report_data.primehill,  # НОВОЕ ПОЛЕ
+                yandex_food_no_system=report_data.yandex_food_no_system,
                 fact_cash=report_data.fact_cash
             )
 
@@ -115,11 +115,11 @@ class ShiftReportCRUD:
                 total_revenue=report_data.total_revenue,
                 returns=report_data.returns,
                 acquiring=report_data.acquiring,
+                yandex_pay_qr=report_data.yandex_pay_qr,
                 qr_code=report_data.qr_code,
                 online_app=report_data.online_app,
                 yandex_food=report_data.yandex_food,
-                yandex_food_no_system=report_data.yandex_food_no_system,  # НОВОЕ ПОЛЕ
-                primehill=report_data.primehill,  # НОВОЕ ПОЛЕ
+                yandex_food_no_system=report_data.yandex_food_no_system,
                 fact_cash=report_data.fact_cash,
                 total_acquiring=calculations["total_acquiring"],
                 calculated_amount=calculations["calculated_amount"],
@@ -176,11 +176,11 @@ class ShiftReportCRUD:
                         'total_revenue': float(db_report.total_revenue),
                         'returns': float(db_report.returns),
                         'acquiring': float(db_report.acquiring),
+                        'yandex_pay_qr': float(db_report.yandex_pay_qr),
                         'qr_code': float(db_report.qr_code),
                         'online_app': float(db_report.online_app),
                         'yandex_food': float(db_report.yandex_food),
-                        'yandex_food_no_system': float(db_report.yandex_food_no_system),  # НОВОЕ ПОЛЕ
-                        'primehill': float(db_report.primehill),  # НОВОЕ ПОЛЕ
+                        'yandex_food_no_system': float(db_report.yandex_food_no_system),
                         'total_acquiring': float(db_report.total_acquiring),
                         'income_entries': db_report.income_entries,
                         'total_income': float(db_report.total_income),

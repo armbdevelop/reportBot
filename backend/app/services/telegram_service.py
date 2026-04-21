@@ -528,12 +528,12 @@ class TelegramService:
 - Возвраты: <b>{int(data.get('returns', 0))}₽</b>
 
 💳 <b>Безналичные платежи:</b>
-- Эквайринг: <b>{int(data.get('acquiring', 0))}₽</b>
-- QR код: <b>{int(data.get('qr_code', 0))}₽</b>
+- СберБанк терминал: <b>{int(data.get('acquiring', 0))}₽</b>
+- QR код от Яндекс.Пэй: <b>{int(data.get('yandex_pay_qr', 0))}₽</b>
+- Не работает терминал (QR с телеграмм): <b>{int(data.get('qr_code', 0))}₽</b>
 - Онлайн приложение: <b>{int(data.get('online_app', 0))}₽</b>
 - Яндекс Еда: <b>{int(data.get('yandex_food', 0))}₽</b>
 - Яндекс Еда (вручную): <b>{int(data.get('yandex_food_no_system', 0))}₽</b>
-- Primehill: <b>{int(data.get('primehill', 0))}₽</b>
 <b>Итого эквайринг: {int(data.get('total_acquiring', 0))}₽</b>
 
 📈 <b>Внесения:</b>

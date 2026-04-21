@@ -11,11 +11,11 @@ class ReportCalculator:
             income_entries: List[IncomeEntry],
             expense_entries: List[ExpenseEntry],
             acquiring: Decimal,
+            yandex_pay_qr: Decimal,
             qr_code: Decimal,
             online_app: Decimal,
             yandex_food: Decimal,
-            yandex_food_no_system: Decimal,  # НОВОЕ ПОЛЕ
-            primehill: Decimal,  # НОВОЕ ПОЛЕ
+            yandex_food_no_system: Decimal,
             fact_cash: Decimal
     ) -> dict:
         """
@@ -32,11 +32,11 @@ class ReportCalculator:
         # Считаем общую сумму эквайринга (все отмеченные "*" пункты + новые поля)
         total_acquiring = round((
             acquiring +
+            yandex_pay_qr +
             qr_code +
             online_app +
             yandex_food +
-            yandex_food_no_system +  # ДОБАВЛЕНО
-            primehill  # ДОБАВЛЕНО
+            yandex_food_no_system
         ),0)//1
 
         # Применяем формулу расчета

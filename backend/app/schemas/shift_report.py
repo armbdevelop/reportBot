@@ -111,9 +111,13 @@ class ShiftReportCreate(BaseModel):
         default=0,
         description="Эквайринг (оплата картами)",
     )
+    yandex_pay_qr: Decimal = Field(
+        default=0,
+        description="QR код от Яндекс.Пэй",
+    )
     qr_code: Decimal = Field(
         default=0,
-        description="Оплата по QR коду",
+        description="Оплата по QR коду (не работает терминал, QR с телеграмм)",
     )
     online_app: Decimal = Field(
         default=0,
@@ -125,16 +129,10 @@ class ShiftReportCreate(BaseModel):
         description="Оплата через Яндекс Еда",
         example=1200.00
     )
-    # НОВЫЕ ПОЛЯ
     yandex_food_no_system: Decimal = Field(
         default=0,
         description="Яндекс.Еда - не пришел заказ в систему",
         example=300.00
-    )
-    primehill: Decimal = Field(
-        default=0,
-        description="Primehill",
-        example=500.00
     )
 
     fact_cash: Decimal = Field(
@@ -162,11 +160,11 @@ class ShiftReportCreate(BaseModel):
                 "total_revenue": 15000.50,
                 "returns": 200.00,
                 "acquiring": 5000.00,
+                "yandex_pay_qr": 800.00,
                 "qr_code": 1500.00,
                 "online_app": 2000.00,
                 "yandex_food": 1200.00,
                 "yandex_food_no_system": 300.00,
-                "primehill": 500.00,
                 "fact_cash": 5100.50
             }
         }
@@ -193,12 +191,11 @@ class ShiftReportResponse(BaseModel):
     total_revenue: int = Field(description="Общая выручка")
     returns: int = Field(description="Возвраты")
     acquiring: int = Field(description="Эквайринг")
-    qr_code: int = Field(description="QR код")
+    yandex_pay_qr: int = Field(description="QR код от Яндекс.Пэй")
+    qr_code: int = Field(description="QR код (не работает терминал, QR с телеграмм)")
     online_app: int = Field(description="Онлайн приложение")
     yandex_food: int = Field(description="Яндекс Еда")
-    # НОВЫЕ ПОЛЯ
     yandex_food_no_system: int = Field(description="Яндекс.Еда - не пришел заказ в систему")
-    primehill: int = Field(description="Primehill")
 
     # JSON поля из базы данных
     income_entries: List[Dict[str, Any]] = Field(
@@ -235,11 +232,11 @@ class ShiftReportResponse(BaseModel):
                 "total_revenue": 15000,
                 "returns": 200,
                 "acquiring": 5000,
+                "yandex_pay_qr": 800,
                 "qr_code": 1500,
                 "online_app": 2000,
                 "yandex_food": 1200,
                 "yandex_food_no_system": 300,
-                "primehill": 500,
                 "income_entries": [
                     {"amount": 500.5, "comment": "Внесение от администратора"},
                     {"amount": 200.0, "comment": "Сдача с предыдущей смены"}

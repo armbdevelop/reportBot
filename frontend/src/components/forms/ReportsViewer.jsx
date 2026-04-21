@@ -325,7 +325,11 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 							<p className="font-medium">{formatAmount(report.acquiring || 0)}</p>
 						</div>
 						<div className="bg-gray-50 p-1.5 rounded text-center">
-							<p className="text-gray-600">QR</p>
+							<p className="text-gray-600">Я.Пэй QR</p>
+							<p className="font-medium">{formatAmount(report.yandex_pay_qr || 0)}</p>
+						</div>
+						<div className="bg-gray-50 p-1.5 rounded text-center">
+							<p className="text-gray-600">QR (тг)</p>
 							<p className="font-medium">{formatAmount(report.qr_code || 0)}</p>
 						</div>
 						<div className="bg-gray-50 p-1.5 rounded text-center">
@@ -339,10 +343,6 @@ const ReportsViewer = ({ goToMenu, apiService }) => {
 						<div className="bg-gray-50 p-1.5 rounded text-center">
 							<p className="text-gray-600">Я.Еда ручн.</p>
 							<p className="font-medium">{formatAmount(report.yandex_food_no_system || 0)}</p>
-						</div>
-						<div className="bg-gray-50 p-1.5 rounded text-center">
-							<p className="text-gray-600">Primehill</p>
-							<p className="font-medium">{formatAmount(report.primehill || 0)}</p>
 						</div>
 					</div>
 				</div>
